@@ -14,17 +14,12 @@
  * limitations under the License.
  */
 
-package com.qmuiteam.qmui.widget;
+package com.qmuiteam.qmui.arch.scheme;
 
-import android.graphics.Rect;
+import android.content.Intent;
 
-/**
- * @author cginechen
- * @date 2017-09-13
- */
+import androidx.annotation.Nullable;
 
-public interface IWindowInsetLayout {
-    boolean applySystemWindowInsets19(Rect insets);
-
-    boolean applySystemWindowInsets21(Object insets);
+public interface ActivitySchemeRefreshable {
+    void refreshFromScheme(@Nullable Intent intent);
 }

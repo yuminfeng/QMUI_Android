@@ -16,60 +16,32 @@
 
 package com.qmuiteam.qmui.widget.popup;
 
-import android.animation.ValueAnimator;
-import android.annotation.TargetApi;
 import android.content.Context;
-import android.graphics.Rect;
 import android.graphics.drawable.Drawable;
-import android.view.GestureDetector;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.WindowManager;
 import android.widget.ImageView;
 
-import com.qmuiteam.qmui.QMUIInterpolatorStaticHolder;
+import androidx.constraintlayout.widget.ConstraintLayout;
+
 import com.qmuiteam.qmui.R;
 import com.qmuiteam.qmui.alpha.QMUIAlphaImageButton;
+import com.qmuiteam.qmui.layout.QMUIConstraintLayout;
 import com.qmuiteam.qmui.skin.QMUISkinHelper;
 import com.qmuiteam.qmui.skin.QMUISkinValueBuilder;
 import com.qmuiteam.qmui.util.QMUIDisplayHelper;
 import com.qmuiteam.qmui.util.QMUIResHelper;
 import com.qmuiteam.qmui.util.QMUIViewHelper;
-import com.qmuiteam.qmui.util.QMUIViewOffsetHelper;
 import com.qmuiteam.qmui.widget.IBlankTouchDetector;
-import com.qmuiteam.qmui.widget.IWindowInsetKeyboardConsumer;
-import com.qmuiteam.qmui.widget.QMUIWindowInsetLayout2;
 
 import java.util.ArrayList;
-
-import androidx.annotation.Nullable;
-import androidx.constraintlayout.widget.ConstraintLayout;
-import androidx.core.view.GestureDetectorCompat;
 
 import static android.view.WindowManager.LayoutParams.FLAG_LAYOUT_INSET_DECOR;
 import static android.view.WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN;
 
 public class QMUIFullScreenPopup extends QMUIBasePopup<QMUIFullScreenPopup> {
-
-    private static OnKeyBoardListener sOffsetKeyboardHeightListener;
-    private static OnKeyBoardListener sOffsetHalfKeyboardHeightListener;
-
-    public static OnKeyBoardListener getOffsetKeyboardHeightListener() {
-        if (sOffsetKeyboardHeightListener == null) {
-            sOffsetKeyboardHeightListener = new KeyboardPercentOffsetListener(1f);
-        }
-        return sOffsetKeyboardHeightListener;
-    }
-
-    public static OnKeyBoardListener getOffsetHalfKeyboardHeightListener() {
-        if (sOffsetHalfKeyboardHeightListener == null) {
-            sOffsetHalfKeyboardHeightListener = new KeyboardPercentOffsetListener(0.5f);
-        }
-        return sOffsetHalfKeyboardHeightListener;
-    }
-
-
     private OnBlankClickListener mOnBlankClickListener;
     private boolean mAddCloseBtn = false;
     private int mCloseIconAttr = R.attr.qmui_skin_support_popup_close_icon;
@@ -82,6 +54,7 @@ public class QMUIFullScreenPopup extends QMUIBasePopup<QMUIFullScreenPopup> {
         super(context);
         mWindow.setWidth(ViewGroup.LayoutParams.MATCH_PARENT);
         mWindow.setHeight(ViewGroup.LayoutParams.MATCH_PARENT);
+        mWindow.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE);
         dimAmount(0.6f);
     }
 
@@ -119,22 +92,15 @@ public class QMUIFullScreenPopup extends QMUIBasePopup<QMUIFullScreenPopup> {
         return this;
     }
 
-    public QMUIFullScreenPopup addView(View view, ConstraintLayout.LayoutParams lp, OnKeyBoardListener onKeyBoardListener) {
-        mViews.add(new ViewInfo(view, lp, onKeyBoardListener));
-        return this;
-    }
-
     public QMUIFullScreenPopup addView(View view, ConstraintLayout.LayoutParams lp) {
-        return addView(view, lp, null);
-    }
-
-    public QMUIFullScreenPopup addView(View view, OnKeyBoardListener onKeyBoardListener) {
-        mViews.add(new ViewInfo(view, defaultContentLp(), onKeyBoardListener));
+        mViews.add(new ViewInfo(view, lp));
         return this;
     }
+
 
     public QMUIFullScreenPopup addView(View view) {
-        return addView(view, defaultContentLp());
+        mViews.add(new ViewInfo(view, defaultContentLp()));
+        return this;
     }
 
     private ConstraintLayout.LayoutParams defaultContentLp() {
@@ -170,9 +136,9 @@ public class QMUIFullScreenPopup extends QMUIBasePopup<QMUIFullScreenPopup> {
         });
         closeBtn.setFitsSystemWindows(true);
         Drawable drawable = null;
-        if(mCloseIcon != null){
+        if (mCloseIcon != null) {
             drawable = mCloseIcon;
-        }else if(mCloseIconAttr != 0){
+        } else if (mCloseIconAttr != 0) {
             QMUISkinValueBuilder builder = QMUISkinValueBuilder.acquire().src(mCloseIconAttr);
             QMUISkinHelper.setSkinValue(closeBtn, builder);
             builder.release();
@@ -182,7 +148,14 @@ public class QMUIFullScreenPopup extends QMUIBasePopup<QMUIFullScreenPopup> {
         return closeBtn;
     }
 
+    public boolean isShowing() {
+        return mWindow.isShowing();
+    }
+
     public void show(View parent) {
+        if (isShowing()) {
+            return;
+        }
         if (mViews.isEmpty()) {
             throw new RuntimeException("you should call addView() to add content view");
         }
@@ -221,38 +194,44 @@ public class QMUIFullScreenPopup extends QMUIBasePopup<QMUIFullScreenPopup> {
         void onBlankClick(QMUIFullScreenPopup popup);
     }
 
-    class RootView extends QMUIWindowInsetLayout2 implements IWindowInsetKeyboardConsumer {
-        private GestureDetectorCompat mGestureDetector;
-        private int mLastKeyboardShowHeight = 0;
+    class RootView extends QMUIConstraintLayout {
+        private boolean mShouldInvokeBlackClickWhenTouchUp = false;
 
         public RootView(Context context) {
             super(context);
-            mGestureDetector = new GestureDetectorCompat(context, new GestureDetector.SimpleOnGestureListener() {
-                @Override
-                public boolean onSingleTapUp(MotionEvent e) {
-                    return true;
-                }
-            });
         }
 
         @Override
         public boolean onTouchEvent(MotionEvent event) {
-            if (mGestureDetector.onTouchEvent(event)) {
-                View childView = findChildViewUnder(event.getX(), event.getY());
-                boolean isBlank = childView == null;
-                if (!isBlank && (childView instanceof IBlankTouchDetector)) {
-                    MotionEvent e = MotionEvent.obtain(event);
-                    int offsetX = getScrollX() - childView.getLeft();
-                    int offsetY = getScrollY() - childView.getTop();
-                    e.offsetLocation(offsetX, offsetY);
-                    isBlank = ((IBlankTouchDetector) childView).isTouchInBlank(e);
-                    e.recycle();
-                }
-                if (isBlank && mOnBlankClickListener != null) {
+            int action = event.getActionMasked();
+            if (mOnBlankClickListener == null) {
+                return true;
+            }
+            if (action == MotionEvent.ACTION_DOWN) {
+                mShouldInvokeBlackClickWhenTouchUp = isTouchInBlack(event);
+            } else if (action == MotionEvent.ACTION_MOVE) {
+                mShouldInvokeBlackClickWhenTouchUp = mShouldInvokeBlackClickWhenTouchUp && isTouchInBlack(event);
+            } else if (action == MotionEvent.ACTION_UP || action == MotionEvent.ACTION_CANCEL) {
+                mShouldInvokeBlackClickWhenTouchUp = mShouldInvokeBlackClickWhenTouchUp && isTouchInBlack(event);
+                if (mShouldInvokeBlackClickWhenTouchUp) {
                     mOnBlankClickListener.onBlankClick(QMUIFullScreenPopup.this);
                 }
             }
             return true;
+        }
+
+        private boolean isTouchInBlack(MotionEvent event) {
+            View childView = findChildViewUnder(event.getX(), event.getY());
+            boolean isBlank = childView == null;
+            if (!isBlank && (childView instanceof IBlankTouchDetector)) {
+                MotionEvent e = MotionEvent.obtain(event);
+                int offsetX = getScrollX() - childView.getLeft();
+                int offsetY = getScrollY() - childView.getTop();
+                e.offsetLocation(offsetX, offsetY);
+                isBlank = ((IBlankTouchDetector) childView).isTouchInBlank(e);
+                e.recycle();
+            }
+            return isBlank;
         }
 
 
@@ -273,98 +252,22 @@ public class QMUIFullScreenPopup extends QMUIBasePopup<QMUIFullScreenPopup> {
         }
 
         @Override
-        public boolean applySystemWindowInsets19(Rect insets) {
-            super.applySystemWindowInsets19(insets);
-            return true;
-        }
-
-        @Override
-        @TargetApi(21)
-        public boolean applySystemWindowInsets21(Object insets) {
-            super.applySystemWindowInsets21(insets);
-            return true;
-        }
-
-        @Override
-        public void onHandleKeyboard(int keyboardInset) {
-            if (keyboardInset > 0) {
-                mLastKeyboardShowHeight = keyboardInset;
-                for (ViewInfo viewInfo : mViews) {
-                    if (viewInfo.onKeyBoardListener != null) {
-                        viewInfo.onKeyBoardListener.onKeyboardToggle(viewInfo.view, true, keyboardInset, getHeight());
-                    }
-                }
-            } else {
-                for (ViewInfo viewInfo : mViews) {
-                    if (viewInfo.onKeyBoardListener != null) {
-                        viewInfo.onKeyBoardListener.onKeyboardToggle(viewInfo.view, false, mLastKeyboardShowHeight, getHeight());
-                    }
-                }
-            }
-        }
-
-        @Override
         protected void onLayout(boolean changed, int left, int top, int right, int bottom) {
             super.onLayout(changed, left, top, right, bottom);
             for (ViewInfo viewInfo : mViews) {
                 View view = viewInfo.view;
-                QMUIViewOffsetHelper offsetHelper = (QMUIViewOffsetHelper) view.getTag(R.id.qmui_view_offset_helper);
-                if (offsetHelper != null) {
-                    offsetHelper.onViewLayout();
-                }
+                QMUIViewHelper.getOrCreateOffsetHelper(view).onViewLayout();
             }
         }
     }
 
     class ViewInfo {
-        private OnKeyBoardListener onKeyBoardListener;
         private View view;
         private ConstraintLayout.LayoutParams lp;
 
-        public ViewInfo(View view, ConstraintLayout.LayoutParams lp, @Nullable OnKeyBoardListener onKeyBoardListener) {
+        public ViewInfo(View view, ConstraintLayout.LayoutParams lp) {
             this.view = view;
             this.lp = lp;
-            this.onKeyBoardListener = onKeyBoardListener;
-        }
-    }
-
-    public static QMUIViewOffsetHelper getOrCreateViewOffsetHelper(View view) {
-        QMUIViewOffsetHelper offsetHelper = (QMUIViewOffsetHelper) view.getTag(R.id.qmui_view_offset_helper);
-        if (offsetHelper == null) {
-            offsetHelper = new QMUIViewOffsetHelper(view);
-            view.setTag(R.id.qmui_view_offset_helper, offsetHelper);
-        }
-        return offsetHelper;
-    }
-
-    public interface OnKeyBoardListener {
-        void onKeyboardToggle(View view, boolean toShow, int keyboardHeight, int rootViewHeight);
-    }
-
-    public static class KeyboardPercentOffsetListener implements OnKeyBoardListener {
-        private float mPercent;
-        private ValueAnimator mAnimator;
-
-        public KeyboardPercentOffsetListener(float percent) {
-            mPercent = percent;
-        }
-
-        @Override
-        public void onKeyboardToggle(View view, boolean toShow, int keyboardHeight, int rootViewHeight) {
-            final QMUIViewOffsetHelper offsetHelper = QMUIFullScreenPopup.getOrCreateViewOffsetHelper(view);
-            if (mAnimator != null) {
-                QMUIViewHelper.clearValueAnimator(mAnimator);
-            }
-            int target = toShow ? (int) (-keyboardHeight * mPercent) : 0;
-            mAnimator = ValueAnimator.ofInt(offsetHelper.getTopAndBottomOffset(), target);
-            mAnimator.setInterpolator(QMUIInterpolatorStaticHolder.FAST_OUT_SLOW_IN_INTERPOLATOR);
-            mAnimator.addUpdateListener(new ValueAnimator.AnimatorUpdateListener() {
-                @Override
-                public void onAnimationUpdate(ValueAnimator animation) {
-                    offsetHelper.setTopAndBottomOffset((Integer) animation.getAnimatedValue());
-                }
-            });
-            mAnimator.start();
         }
     }
 }

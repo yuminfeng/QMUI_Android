@@ -21,9 +21,9 @@ import android.view.ViewGroup;
 import com.qmuiteam.qmui.widget.QMUIItemViewsAdapter;
 
 public class QMUITabAdapter extends QMUIItemViewsAdapter<QMUITab, QMUITabView> implements QMUITabView.Callback {
-    private QMUITabSegment mTabSegment;
+    private QMUIBasicTabSegment mTabSegment;
 
-    public QMUITabAdapter(QMUITabSegment tabSegment, ViewGroup parentView) {
+    public QMUITabAdapter(QMUIBasicTabSegment tabSegment, ViewGroup parentView) {
         super(parentView);
         mTabSegment = tabSegment;
     }
@@ -37,6 +37,18 @@ public class QMUITabAdapter extends QMUIItemViewsAdapter<QMUITab, QMUITabView> i
     protected final void bind(QMUITab item, QMUITabView view, int position) {
         onBindTab(item, view, position);
         view.setCallback(this);
+        // reset
+        if (view.getSelectFraction() != 0f || view.isSelected()) {
+            view.setSelected(false);
+            view.setSelectFraction(0f);
+        }
+    }
+
+    @Override
+    protected void onViewRecycled(QMUITabView qmuiTabView) {
+        qmuiTabView.setSelected(false);
+        qmuiTabView.setSelectFraction(0f);
+        qmuiTabView.setCallback(null);
     }
 
     protected void onBindTab(QMUITab item, QMUITabView view, int position) {
@@ -46,7 +58,7 @@ public class QMUITabAdapter extends QMUIItemViewsAdapter<QMUITab, QMUITabView> i
     @Override
     public void onClick(QMUITabView view) {
         int index = getViews().indexOf(view);
-        mTabSegment.onClickTab(index);
+        mTabSegment.onClickTab(view, index);
     }
 
     @Override

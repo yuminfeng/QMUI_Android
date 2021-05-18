@@ -14,12 +14,18 @@
  * limitations under the License.
  */
 
-package com.qmuiteam.qmui.widget;
+package com.qmuiteam.qmui.arch.scheme;
 
-public interface INotchInsetConsumer {
-    /**
-     *
-     * @return if true stop dispatch to child view
-     */
-    boolean notifyInsetMaybeChanged();
+import android.app.Activity;
+
+import androidx.annotation.NonNull;
+
+import java.util.Map;
+
+public interface QMUISchemeHandleInterpolator {
+    boolean intercept(@NonNull QMUISchemeHandler schemeHandler,
+                      @NonNull Activity activity,
+                      @NonNull String action,
+                      @NonNull Map<String, String> params,
+                      @NonNull String origin);
 }

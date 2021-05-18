@@ -182,7 +182,6 @@
         <item name="qmui_common_list_item_detail_h_text_size">14sp</item>
         <item name="qmui_common_list_item_detail_line_space">5dp</item>
         <item name="qmui_common_list_item_detail_h_margin_with_title">20dp</item>
-        <item name="qmui_common_list_item_detail_h_margin_with_title_large">52dp</item>
         <item name="qmui_common_list_item_detail_v_margin_with_title">4dp</item>
         <item name="qmui_common_list_item_holder_margin_with_title">8dp</item>
         <item name="qmui_common_list_item_chevron">@drawable/qmui_icon_chevron</item>
@@ -307,8 +306,10 @@
         ***********************************************-->
         <item name="qmui_skin_support_slider_bar_bg_color">?attr/qmui_config_color_gray_3</item>
         <item name="qmui_skin_support_slider_bar_progress_color">?attr/qmui_config_color_blue</item>
+        <item name="qmui_skin_support_slider_record_progress_color">?attr/qmui_config_color_gray_1</item>
         <item name="qmui_skin_support_slider_thumb_bg_color">@color/qmui_config_color_white</item>
         <item name="qmui_skin_support_slider_thumb_border_color">?attr/qmui_skin_support_color_separator</item>
+        <item name="qmui_skin_support_seek_bar_color">?attr/qmui_config_color_gray_3</item>
 
 
         <!--**********************************************
@@ -333,6 +334,7 @@
         <item name="qmui_bottom_sheet_background_dim_amount">0.6</item>
         <item name="qmui_bottom_sheet_cancel_btn_height">56dp</item>
         <item name="qmui_bottom_sheet_list_item_height">56dp</item>
+        <item name="qmui_bottom_sheet_list_item_separator_height">1px</item>
         <item name="qmui_bottom_sheet_list_item_icon_size">22dp</item>
         <item name="qmui_bottom_sheet_list_item_red_point_size">@dimen/qmui_tips_point_size</item>
         <item name="qmui_bottom_sheet_list_item_icon_margin_right">12dp</item>
@@ -395,6 +397,7 @@
         <item name="QMUIRadiusImageViewStyle">@style/QMUI.RadiusImageView</item>
         <item name="QMUIQQFaceStyle">@style/QMUI.QQFaceView</item>
         <item name="QMUISliderStyle">@style/QMUI.Slider</item>
+        <item name="QMUISeekBarStyle">@style/QMUI.SeekBar</item>
         <item name="QMUISliderThumbStyle">@style/QMUI.SliderThumb</item>
         <item name="QMUIPullLayoutStyle">@style/QMUI.PullLayout</item>
         <item name="QMUIPullLoadMoreStyle">@style/QMUI.PullLoadMore</item>

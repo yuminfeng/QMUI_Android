@@ -4,6 +4,9 @@ import android.util.Pair;
 import android.webkit.ValueCallback;
 import android.webkit.WebView;
 
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
+
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -11,16 +14,14 @@ import org.json.JSONObject;
 import java.util.ArrayList;
 import java.util.List;
 
-import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
-
 public abstract class QMUIWebViewBridgeHandler {
     private static final String MESSAGE_JS_FETCH_SCRIPT = "QMUIBridge._fetchQueueFromNative()";
     private static final String MESSAGE_JS_RESPONSE_SCRIPT = "QMUIBridge._handleResponseFromNative($data$)";
     private static final String MESSAGE_PARAM_HOLDER = "$data$";
     private static final String MESSAGE_CALLBACK_ID = "callbackId";
     private static final String MESSAGE_DATA = "data";
-    private static final String MESSAGE_RESPONSE_ID = "id";
+    private static final String MESSAGE_INNER_CMD_NAME = "__cmd__";
+    private static final String MESSAGE_CMD_GET_SUPPORTED_CMD_LIST = "getSupportedCmdList";
 
     private List<Pair<String, ValueCallback<String>>> mStartupMessageList = new ArrayList<>();
     private WebView mWebView;
@@ -40,7 +41,7 @@ public abstract class QMUIWebViewBridgeHandler {
     void onBridgeLoaded() {
         if (mStartupMessageList != null) {
             for (Pair<String, ValueCallback<String>> message : mStartupMessageList) {
-                mWebView.evaluateJavascript("", null);
+                mWebView.evaluateJavascript(message.first, message.second);
             }
             mStartupMessageList = null;
         }
@@ -58,14 +59,27 @@ public abstract class QMUIWebViewBridgeHandler {
                         for (int i = 0; i < array.length(); i++) {
                             JSONObject message = array.getJSONObject(i);
                             String callbackId = message.getString(MESSAGE_CALLBACK_ID);
-                            JSONObject response = new JSONObject();
-                            JSONObject responseData = handleMessage(message.getString(MESSAGE_DATA));
-                            if (callbackId != null) {
-                                response.put(MESSAGE_RESPONSE_ID, callbackId);
-                                response.put(MESSAGE_DATA, responseData);
-                                String script = MESSAGE_JS_RESPONSE_SCRIPT.replace(
-                                        MESSAGE_PARAM_HOLDER, escape(response.toString()));
-                                mWebView.evaluateJavascript(script, null);
+                            String msgDataOrigin = message.getString(MESSAGE_DATA);
+                            MessageFinishCallback callback = new MessageFinishCallback(callbackId) {
+                                @Override
+                                public void finish(Object data) {
+                                    try{
+                                        JSONObject response = new JSONObject();
+                                        response.put(MESSAGE_CALLBACK_ID, getCallbackId());
+                                        response.put(MESSAGE_DATA, data);
+                                        String script = MESSAGE_JS_RESPONSE_SCRIPT.replace(MESSAGE_PARAM_HOLDER, response.toString());
+                                        mWebView.evaluateJavascript(script, null);
+                                    }catch (Throwable ignore){
+
+                                    }
+                                }
+                            };
+                            try{
+                                JSONObject msgData = new JSONObject(msgDataOrigin);
+                                String cmdName = msgData.getString(MESSAGE_INNER_CMD_NAME);
+                                handleInnerMessage(cmdName, msgData, callback);
+                            }catch (Throwable e){
+                                handleMessage(msgDataOrigin, callback);
                             }
                         }
                     } catch (JSONException e) {
@@ -76,7 +90,18 @@ public abstract class QMUIWebViewBridgeHandler {
         });
     }
 
-    protected abstract JSONObject handleMessage(String message);
+
+    private void handleInnerMessage(String cmdName, JSONObject jsonObject, MessageFinishCallback callback){
+        if(MESSAGE_CMD_GET_SUPPORTED_CMD_LIST.equals(cmdName)){
+            callback.finish(new JSONArray(getSupportedCmdList()));
+        }else{
+            throw new RuntimeException("not a inner api message. fallback to custom message");
+        }
+    }
+
+    protected abstract List<String> getSupportedCmdList();
+
+    protected abstract void handleMessage(String message, MessageFinishCallback callback);
 
     @Nullable
     public static String unescape(@Nullable String value) {
@@ -101,6 +126,22 @@ public abstract class QMUIWebViewBridgeHandler {
                 .replace("\\", "\\\\")
                 .replace("\"", "\\\"");
         return "\"" + ret + "\"";
+    }
+
+
+    public abstract class MessageFinishCallback{
+
+        private final String mCallbackId;
+
+        public MessageFinishCallback(String callbackId){
+            mCallbackId = callbackId;
+        }
+
+        public String getCallbackId() {
+            return mCallbackId;
+        }
+
+        public abstract void finish(Object data);
     }
 
 }

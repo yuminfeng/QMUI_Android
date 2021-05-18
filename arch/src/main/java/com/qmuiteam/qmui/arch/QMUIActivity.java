@@ -25,13 +25,17 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.FrameLayout;
 
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
+import androidx.core.view.WindowInsetsCompat;
+
+import com.qmuiteam.qmui.arch.scheme.ActivitySchemeRefreshable;
 import com.qmuiteam.qmui.util.QMUIDisplayHelper;
 import com.qmuiteam.qmui.util.QMUIStatusBarHelper;
 
-import androidx.annotation.Nullable;
-
 import static com.qmuiteam.qmui.arch.SwipeBackLayout.DRAG_DIRECTION_BOTTOM_TO_TOP;
 import static com.qmuiteam.qmui.arch.SwipeBackLayout.DRAG_DIRECTION_LEFT_TO_RIGHT;
+import static com.qmuiteam.qmui.arch.SwipeBackLayout.DRAG_DIRECTION_NONE;
 import static com.qmuiteam.qmui.arch.SwipeBackLayout.DRAG_DIRECTION_RIGHT_TO_LEFT;
 import static com.qmuiteam.qmui.arch.SwipeBackLayout.DRAG_DIRECTION_TOP_TO_BOTTOM;
 import static com.qmuiteam.qmui.arch.SwipeBackLayout.EDGE_BOTTOM;
@@ -39,7 +43,7 @@ import static com.qmuiteam.qmui.arch.SwipeBackLayout.EDGE_LEFT;
 import static com.qmuiteam.qmui.arch.SwipeBackLayout.EDGE_RIGHT;
 import static com.qmuiteam.qmui.arch.SwipeBackLayout.EDGE_TOP;
 
-public class QMUIActivity extends InnerBaseActivity {
+public class QMUIActivity extends InnerBaseActivity implements ActivitySchemeRefreshable {
     private static final String TAG = "QMUIActivity";
     private SwipeBackLayout.ListenerRemover mListenerRemover;
     private SwipeBackgroundView mSwipeBackgroundView;
@@ -73,7 +77,7 @@ public class QMUIActivity extends InnerBaseActivity {
                 scrollPercent = Math.max(0f, Math.min(1f, scrollPercent));
                 int targetOffset = (int) (Math.abs(backViewInitOffset(
                         QMUIActivity.this, dragDirection, movingEdge)) * (1 - scrollPercent));
-                SwipeBackLayout.offsetInSwipeBack(mSwipeBackgroundView, movingEdge, targetOffset);
+                SwipeBackLayout.translateInSwipeBack(mSwipeBackgroundView, movingEdge, targetOffset);
             }
         }
 
@@ -94,7 +98,7 @@ public class QMUIActivity extends InnerBaseActivity {
                 }
                 mSwipeBackgroundView.bind(prevActivity,
                         QMUIActivity.this, restoreSubWindowWhenDragBack());
-                SwipeBackLayout.offsetInSwipeBack(mSwipeBackgroundView, moveEdge,
+                SwipeBackLayout.translateInSwipeBack(mSwipeBackgroundView, moveEdge,
                         Math.abs(backViewInitOffset(decorView.getContext(), dragDirection, moveEdge)));
             }
         }
@@ -105,16 +109,15 @@ public class QMUIActivity extends InnerBaseActivity {
         }
     };
     private SwipeBackLayout.Callback mSwipeCallback = new SwipeBackLayout.Callback() {
-        @Override
-        public boolean canSwipeBack(SwipeBackLayout layout, int dragDirection, int moveEdge) {
-            return QMUISwipeBackActivityManager.getInstance().canSwipeBack() &&
-                    canDragBack(layout.getContext(), dragDirection, moveEdge);
-        }
 
         @Override
-        public boolean shouldBeginDrag(SwipeBackLayout swipeBackLayout,
-                                       float downX, float downY, int direction) {
-            return QMUIActivity.this.shouldBeginDrag(swipeBackLayout, downX, downY, direction);
+        public int getDragDirection(SwipeBackLayout swipeBackLayout,
+                                    SwipeBackLayout.ViewMoveAction moveAction,
+                                    float downX, float downY, float dx, float dy, float touchSlop) {
+            if(!QMUISwipeBackActivityManager.getInstance().canSwipeBack()){
+                return SwipeBackLayout.DRAG_DIRECTION_NONE;
+            }
+            return QMUIActivity.this.getDragDirection(swipeBackLayout,moveAction,downX, downY, dx, dy, touchSlop);
         }
     };
 
@@ -135,13 +138,13 @@ public class QMUIActivity extends InnerBaseActivity {
 
     @Override
     public void setContentView(int layoutResID) {
-        SwipeBackLayout swipeBackLayout = SwipeBackLayout.wrap(this,
-                layoutResID, dragBackDirection(), dragViewMoveAction(), mSwipeCallback);
-        if (translucentFull()) {
-            swipeBackLayout.getContentView().setFitsSystemWindows(false);
-        } else {
-            swipeBackLayout.getContentView().setFitsSystemWindows(true);
-        }
+        SwipeBackLayout swipeBackLayout = SwipeBackLayout.wrap(this, layoutResID, dragViewMoveAction(), mSwipeCallback);
+        swipeBackLayout.setOnInsetsHandler(new SwipeBackLayout.OnInsetsHandler() {
+            @Override
+            public int getInsetsType() {
+                return getRootViewInsetsType();
+            }
+        });
         mListenerRemover = swipeBackLayout.addSwipeListener(mSwipeListener);
         super.setContentView(swipeBackLayout);
     }
@@ -152,13 +155,13 @@ public class QMUIActivity extends InnerBaseActivity {
     }
 
     private View newSwipeBackLayout(View view) {
-        if (translucentFull()) {
-            view.setFitsSystemWindows(false);
-        } else {
-            view.setFitsSystemWindows(true);
-        }
-        final SwipeBackLayout swipeBackLayout = SwipeBackLayout.wrap(
-                view, dragBackDirection(), dragViewMoveAction(), mSwipeCallback);
+        final SwipeBackLayout swipeBackLayout = SwipeBackLayout.wrap(view, dragViewMoveAction(), mSwipeCallback);
+        swipeBackLayout.setOnInsetsHandler(new SwipeBackLayout.OnInsetsHandler() {
+            @Override
+            public int getInsetsType() {
+                return getRootViewInsetsType();
+            }
+        });
         mListenerRemover = swipeBackLayout.addSwipeListener(mSwipeListener);
         return swipeBackLayout;
     }
@@ -197,7 +200,7 @@ public class QMUIActivity extends InnerBaseActivity {
      * disable or enable drag back
      *
      * @return if true open dragBack, otherwise close dragBack
-     * @deprecated Use {@link #canDragBack(Context, int, int)}
+     * @deprecated Use {@link #getDragDirection(SwipeBackLayout, SwipeBackLayout.ViewMoveAction, float, float, float, float, float)}
      */
     @Deprecated
     protected boolean canDragBack() {
@@ -205,6 +208,13 @@ public class QMUIActivity extends InnerBaseActivity {
     }
 
 
+    /**
+     * disable or enable drag back
+     *
+     * @return if true open dragBack, otherwise close dragBack
+     * @deprecated Use {@link #getDragDirection(SwipeBackLayout, SwipeBackLayout.ViewMoveAction, float, float, float, float, float)}
+     */
+    @Deprecated
     protected boolean canDragBack(Context context, int dragDirection, int moveEdge) {
         return canDragBack();
     }
@@ -222,19 +232,33 @@ public class QMUIActivity extends InnerBaseActivity {
         return backViewInitOffset();
     }
 
-    protected boolean shouldBeginDrag(SwipeBackLayout swipeBackLayout,
-                                      float downX, float downY, int dragDirection){
-        int edgeSize = QMUIDisplayHelper.dp2px(swipeBackLayout.getContext(), 20);
-        if(dragDirection == DRAG_DIRECTION_LEFT_TO_RIGHT){
-            return downX < edgeSize;
-        }else if(dragDirection == DRAG_DIRECTION_RIGHT_TO_LEFT){
-            return downX > swipeBackLayout.getWidth() - edgeSize;
-        }else if(dragDirection == DRAG_DIRECTION_TOP_TO_BOTTOM){
-            return downY < edgeSize;
-        }else if(dragDirection == DRAG_DIRECTION_BOTTOM_TO_TOP){
-            return downY > swipeBackLayout.getHeight() - edgeSize;
+    protected int getDragDirection(@NonNull SwipeBackLayout swipeBackLayout,
+                                   @NonNull SwipeBackLayout.ViewMoveAction viewMoveAction,
+                                   float downX, float downY, float dx, float dy, float slopTouch){
+        int targetDirection = dragBackDirection();
+        if(!canDragBack(swipeBackLayout.getContext(), targetDirection, viewMoveAction.getEdge(targetDirection))){
+            return DRAG_DIRECTION_NONE;
         }
-        return true;
+        int edgeSize = QMUIDisplayHelper.dp2px(swipeBackLayout.getContext(), 20);
+        if (targetDirection == DRAG_DIRECTION_LEFT_TO_RIGHT) {
+            if(downX < edgeSize && dx >= slopTouch){
+                return targetDirection;
+            }
+        } else if (targetDirection == DRAG_DIRECTION_RIGHT_TO_LEFT) {
+            if(downX > swipeBackLayout.getWidth() - edgeSize && -dx >= slopTouch){
+                return targetDirection;
+            }
+        } else if (targetDirection == DRAG_DIRECTION_TOP_TO_BOTTOM) {
+            if(downY < edgeSize && dy >= slopTouch){
+                return targetDirection;
+            }
+        } else if (targetDirection == DRAG_DIRECTION_BOTTOM_TO_TOP) {
+            if(downY > swipeBackLayout.getHeight() - edgeSize && -dy >= slopTouch){
+                return targetDirection;
+            }
+        }
+
+        return DRAG_DIRECTION_NONE;
     }
 
     /**
@@ -271,15 +295,6 @@ public class QMUIActivity extends InnerBaseActivity {
     }
 
     /**
-     * Immersive processing
-     *
-     * @return if true, the area under status bar belongs to content; otherwise it belongs to padding
-     */
-    protected boolean translucentFull() {
-        return false;
-    }
-
-    /**
      * restore sub window(e.g dialog) when drag back to previous activity
      *
      * @return
@@ -298,6 +313,11 @@ public class QMUIActivity extends InnerBaseActivity {
         return null;
     }
 
+    @WindowInsetsCompat.Type.InsetsType
+    public int getRootViewInsetsType() {
+        return WindowInsetsCompat.Type.ime();
+    }
+
     @Override
     public void finish() {
         if (!QMUISwipeBackActivityManager.getInstance().canSwipeBack()) {
@@ -307,5 +327,10 @@ public class QMUIActivity extends InnerBaseActivity {
             }
         }
         super.finish();
+    }
+
+    @Override
+    public void refreshFromScheme(@Nullable Intent intent) {
+
     }
 }

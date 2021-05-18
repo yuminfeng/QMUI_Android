@@ -24,6 +24,7 @@ import android.view.View;
 import android.view.ViewConfiguration;
 import android.view.ViewGroup;
 import android.view.animation.Interpolator;
+import android.webkit.WebView;
 import android.widget.OverScroller;
 
 import androidx.annotation.NonNull;
@@ -47,6 +48,7 @@ public class QMUIContinuousNestedTopAreaBehavior extends QMUIViewOffsetBehavior<
     private Callback mCallback;
     private boolean isInTouch = false;
     private boolean isInFlingOrScroll = false;
+    private boolean replaceCancelActionWithMoveActionForWebView = true;
 
     public QMUIContinuousNestedTopAreaBehavior(Context context) {
         this(context, null);
@@ -56,6 +58,10 @@ public class QMUIContinuousNestedTopAreaBehavior extends QMUIViewOffsetBehavior<
     public QMUIContinuousNestedTopAreaBehavior(Context context, AttributeSet attrs) {
         super(context, attrs);
         mViewFlinger = new ViewFlinger(context);
+    }
+
+    public void setReplaceCancelActionWithMoveActionForWebView(boolean replaceCancelActionWithMoveActionForWebView) {
+        this.replaceCancelActionWithMoveActionForWebView = replaceCancelActionWithMoveActionForWebView;
     }
 
     public void setCallback(Callback callback) {
@@ -112,6 +118,18 @@ public class QMUIContinuousNestedTopAreaBehavior extends QMUIViewOffsetBehavior<
                 final int yDiff = Math.abs(y - lastMotionY);
                 if (yDiff > touchSlop) {
                     isBeingDragged = true;
+                    if(child instanceof WebView || child instanceof QMUIContinuousNestedTopDelegateLayout){
+                        // dispatch cancel event not work in webView sometimes.
+                        MotionEvent cancelEvent = MotionEvent.obtain(ev);
+                        cancelEvent.offsetLocation(-child.getLeft(), -child.getTop());
+                        if(replaceCancelActionWithMoveActionForWebView){
+                            cancelEvent.setAction(MotionEvent.ACTION_MOVE);
+                        }else{
+                            cancelEvent.setAction(MotionEvent.ACTION_CANCEL);
+                        }
+                        child.dispatchTouchEvent(cancelEvent);
+                        cancelEvent.recycle();
+                    }
                     lastMotionY = y;
                     if (mCallback != null) {
                         mCallback.onTopBehaviorTouchBegin();

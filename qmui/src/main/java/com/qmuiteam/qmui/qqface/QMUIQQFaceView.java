@@ -25,15 +25,17 @@ import android.graphics.Paint;
 import android.graphics.Rect;
 import android.graphics.Typeface;
 import android.graphics.drawable.Drawable;
-import android.os.Build;
 import android.text.TextPaint;
 import android.text.TextUtils;
 import android.util.AttributeSet;
-import android.util.Log;
 import android.view.Gravity;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
+
+import androidx.annotation.ColorInt;
+import androidx.annotation.Nullable;
+import androidx.core.content.ContextCompat;
 
 import com.qmuiteam.qmui.QMUILog;
 import com.qmuiteam.qmui.R;
@@ -45,10 +47,6 @@ import com.qmuiteam.qmui.util.QMUILangHelper;
 import java.lang.ref.WeakReference;
 import java.util.HashMap;
 import java.util.List;
-
-import androidx.annotation.ColorInt;
-import androidx.annotation.Nullable;
-import androidx.core.content.ContextCompat;
 
 import static android.view.View.MeasureSpec.AT_MOST;
 
@@ -702,21 +700,15 @@ public class QMUIQQFaceView extends View {
             if (mJumpHandleMeasureAndDraw) {
                 break;
             }
-            if (mCurrentCalLine > mMaxLine && mEllipsize == TextUtils.TruncateAt.END
-                    && Build.VERSION.SDK_INT < Build.VERSION_CODES.LOLLIPOP) {
-                // 针对4.x的手机，如果超过最大行数，就打断测量，但这样存在的问题是getLines获取不到真实的行数
+            if (mCurrentCalLine > mMaxLine && mEllipsize == TextUtils.TruncateAt.END) {
                 break;
             }
             element = elements.get(i);
             if (element.getType() == QMUIQQFaceCompiler.ElementType.DRAWABLE) {
                 if (mCurrentCalWidth + mQQFaceSize > widthEnd) {
                     gotoCalNextLine(widthStart);
-                    mCurrentCalWidth += mQQFaceSize;
-                } else if (mCurrentCalWidth + mQQFaceSize == widthEnd) {
-                    gotoCalNextLine(widthStart);
-                } else {
-                    mCurrentCalWidth += mQQFaceSize;
                 }
+                mCurrentCalWidth += mQQFaceSize;
                 if (widthEnd - widthStart < mQQFaceSize) {
                     // 一个表情的宽度都容不下
                     mJumpHandleMeasureAndDraw = true;
@@ -887,9 +879,6 @@ public class QMUIQQFaceView extends View {
                 break;
         }
         setMeasuredDimension(width, height);
-        Log.v(TAG, "mLines = " + mLines + " ; width = " + width + " ; height = "
-                + height + " ; maxLine = " + maxLine + "; measure time = "
-                + (System.currentTimeMillis() - start));
     }
 
     @Override
@@ -898,15 +887,12 @@ public class QMUIQQFaceView extends View {
             return;
         }
         pickTextPaintColor();
-
-        long start = System.currentTimeMillis();
         List<QMUIQQFaceCompiler.Element> elements = mElementList.getElements();
         mCurrentDrawBaseLine = getPaddingTop() + mFirstBaseLine;
         mCurrentDrawLine = 1;
         setStartDrawUsedWidth(getPaddingLeft(), getWidth() - getPaddingLeft() - getPaddingRight());
         mIsExecutedMiddleEllipsize = false;
         drawElements(canvas, elements, getWidth() - getPaddingLeft() - getPaddingRight());
-        Log.v(TAG, "onDraw spend time = " + (System.currentTimeMillis() - start));
     }
 
     private void pickTextPaintColor() {
@@ -1335,7 +1321,7 @@ public class QMUIQQFaceView extends View {
     }
 
     private void onDrawQQFace(Canvas canvas, int res, @Nullable Drawable specialDrawable, int widthStart, int widthEnd, boolean isFirst, boolean isLast) {
-        int size = res != -1 || specialDrawable == null ? mQQFaceSize : specialDrawable.getIntrinsicWidth() + (isFirst || isLast ? mSpecialDrawablePadding : mSpecialDrawablePadding * 2);
+        int size = res != 0 || specialDrawable == null ? mQQFaceSize : specialDrawable.getIntrinsicWidth() + (isFirst || isLast ? mSpecialDrawablePadding : mSpecialDrawablePadding * 2);
         if (mIsNeedEllipsize) {
             if (mEllipsize == TextUtils.TruncateAt.START) {
                 if (mCurrentDrawLine > mLines - mNeedDrawLine) {

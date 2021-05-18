@@ -67,6 +67,12 @@ public class QMUISwipeViewHolder extends RecyclerView.ViewHolder {
         mSwipeActions.add(actionWrapper);
     }
 
+    public void clearActions(){
+        if(mSwipeActions != null){
+            mSwipeActions.clear();
+        }
+    }
+
     public boolean hasAction() {
         return mSwipeActions != null && !mSwipeActions.isEmpty();
     }
@@ -164,7 +170,7 @@ public class QMUISwipeViewHolder extends RecyclerView.ViewHolder {
     }
 
     void draw(Canvas canvas, boolean overSwipeThreshold, float dx, float dy) {
-        if (mSwipeActions.isEmpty()) {
+        if (mSwipeActions == null || mSwipeActions.isEmpty()) {
             return;
         }
         if (mActionTotalWidth > 0) {

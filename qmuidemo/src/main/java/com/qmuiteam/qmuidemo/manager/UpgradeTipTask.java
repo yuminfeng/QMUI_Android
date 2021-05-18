@@ -19,11 +19,13 @@ package com.qmuiteam.qmuidemo.manager;
 import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
-import androidx.core.content.ContextCompat;
 import android.text.SpannableStringBuilder;
 import android.text.Spanned;
 import android.view.View;
 
+import androidx.core.content.ContextCompat;
+
+import com.qmuiteam.qmui.skin.QMUISkinManager;
 import com.qmuiteam.qmui.span.QMUIBlockSpaceSpan;
 import com.qmuiteam.qmui.span.QMUITouchableSpan;
 import com.qmuiteam.qmui.util.QMUIDisplayHelper;
@@ -53,6 +55,7 @@ public class UpgradeTipTask implements UpgradeTask {
         String title = String.format(activity.getString(R.string.app_upgrade_tip_title), QMUIPackageHelper.getAppVersion(activity));
         CharSequence message = getUpgradeWord(activity);
         new QMUIDialog.MessageDialogBuilder(activity)
+                .setSkinManager(QMUISkinManager.defaultInstance(activity))
                 .setTitle(title)
                 .setMessage(message)
                 .create(R.style.ReleaseDialogTheme)
@@ -68,7 +71,34 @@ public class UpgradeTipTask implements UpgradeTask {
 
     public CharSequence getUpgradeWord(final Activity activity) {
         SpannableStringBuilder text = new SpannableStringBuilder();
-        if(mNewVersion == QDUpgradeManager.VERSION_2_0_0_alpha4){
+        if(mNewVersion == QDUpgradeManager.VERSION_2_0_0_alpha11){
+            text.append("1. Feature: Added a new widget: QMUINavFragment.\n");
+            text.append("2. Remove LazyLifecycle, use maxLifecycle for replacement.\n");
+            text.append("3. Some bug fixes.\n");
+        }else if(mNewVersion == QDUpgradeManager.VERSION_2_0_0_alpha10){
+            text.append("1. Feature: Added a new widget: QMUISchemeHandler.\n");
+            text.append("2. Feature: Supported to remove section title if only one section in QMUIStickSectionAdapter.\n");
+            text.append("3. Feature: Supported to add a QMUISkinApplyListener to View.\n");
+            text.append("4. Feature: Add a boolean return value for QMUITabSegment#OnTabClickListener to decide to interrupt the event or not.\n");
+            text.append("5. Some bug fixes.");
+        }else if(mNewVersion == QDUpgradeManager.VERSION_2_0_0_alpha9){
+            text.append("1. Some bug fixes.");
+        }else if(mNewVersion == QDUpgradeManager.VERSION_2_0_0_alpha8){
+            text.append("1. Feature: Add new widget QMUISeekBar.\n");
+            text.append("2. Feature: Provide QMUIFragment#registerEffect to replace startFragmentForResult.\n");
+            text.append("3. Feature: Provide QMUINavFragment to support child fragment navigation\n");
+            text.append("4. Feature: Refactor swipe back to support muti direction.\n");
+            text.append("5. Some bug fixes.");
+        }else if(mNewVersion == QDUpgradeManager.VERSION_2_0_0_alpha7){
+            text.append("1. Add OnProgressChangeListener for QMUIProgressBar.\n");
+            text.append("2. Add skin support for CompoundButton.\n");
+            text.append("3. Some bug fixes.");
+        }else if(mNewVersion == QDUpgradeManager.VERSION_2_0_0_alpha6){
+            text.append("1. Features: Add new widget QMUITabSegment2 to support ViewPager2.\n");
+            text.append("2. Remove the skin's default usage.\n");
+            text.append("3. QMUILayout support radius which is half of the view height or width.\n");
+            text.append("4. Some bug fixes.");
+        }else if(mNewVersion == QDUpgradeManager.VERSION_2_0_0_alpha4){
             text.append("1. Features: Add new widget: QMUIPullLayout.\n");
             text.append("2. Features: Add new widget: QMUIRVItemSwipeAction.\n");
             text.append("3. Support muti instance for QMUISkinManager.\n");

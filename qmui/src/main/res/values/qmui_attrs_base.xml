@@ -64,7 +64,6 @@
     <attr name="qmui_common_list_item_detail_h_text_size" format="dimension" />
     <attr name="qmui_common_list_item_detail_line_space" format="dimension" />
     <attr name="qmui_common_list_item_detail_h_margin_with_title" format="dimension" />
-    <attr name="qmui_common_list_item_detail_h_margin_with_title_large" format="dimension" />
     <attr name="qmui_common_list_item_detail_v_margin_with_title" format="dimension" />
     <attr name="qmui_common_list_item_holder_margin_with_title" format="dimension"/>
 
@@ -173,8 +172,10 @@
     ***********************************************-->
     <attr name="qmui_skin_support_slider_bar_bg_color" format="color"/>
     <attr name="qmui_skin_support_slider_bar_progress_color" format="color"/>
+    <attr name="qmui_skin_support_slider_record_progress_color" format="color"/>
     <attr name="qmui_skin_support_slider_thumb_bg_color" format="color"/>
     <attr name="qmui_skin_support_slider_thumb_border_color" format="color"/>
+    <attr name="qmui_skin_support_seek_bar_color" format="color"/>
 
     <!--**********************************************
     *                  qmui popup                    *
@@ -285,6 +286,7 @@
     <attr name="qmui_bottom_sheet_background_dim_amount" format="float" />
     <attr name="qmui_bottom_sheet_cancel_btn_height" format="dimension"/>
     <attr name="qmui_bottom_sheet_list_item_height" format="dimension"/>
+    <attr name="qmui_bottom_sheet_list_item_separator_height" format="dimension"/>
     <attr name="qmui_bottom_sheet_list_item_icon_size" format="dimension" />
     <attr name="qmui_bottom_sheet_list_item_icon_margin_right" format="dimension" />
     <attr name="qmui_bottom_sheet_list_item_red_point_size" format="dimension"/>

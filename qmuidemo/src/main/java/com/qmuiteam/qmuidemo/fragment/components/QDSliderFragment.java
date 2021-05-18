@@ -20,11 +20,11 @@ import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 
-import com.qmuiteam.qmui.skin.QMUISkinHelper;
-import com.qmuiteam.qmui.skin.QMUISkinValueBuilder;
+import com.qmuiteam.qmui.arch.annotation.FragmentScheme;
+import com.qmuiteam.qmui.widget.QMUISeekBar;
 import com.qmuiteam.qmui.widget.QMUISlider;
 import com.qmuiteam.qmui.widget.QMUITopBarLayout;
-import com.qmuiteam.qmui.widget.roundwidget.QMUIRoundButton;
+import com.qmuiteam.qmuidemo.QDMainActivity;
 import com.qmuiteam.qmuidemo.R;
 import com.qmuiteam.qmuidemo.base.BaseFragment;
 import com.qmuiteam.qmuidemo.lib.annotation.Widget;
@@ -34,7 +34,13 @@ import com.qmuiteam.qmuidemo.model.QDItemDescription;
 import butterknife.BindView;
 import butterknife.ButterKnife;
 
+
 @Widget(widgetClass = QMUISlider.class, iconRes = R.mipmap.icon_grid_slider)
+@FragmentScheme(
+        name = "slider",
+        activities = {QDMainActivity.class},
+        customMatcher = SliderSchemeMatcher.class
+)
 public class QDSliderFragment extends BaseFragment implements QMUISlider.Callback {
 
     @BindView(R.id.topbar)
@@ -42,6 +48,9 @@ public class QDSliderFragment extends BaseFragment implements QMUISlider.Callbac
 
     @BindView(R.id.slider)
     QMUISlider mSlider;
+
+    @BindView(R.id.seekBar)
+    QMUISeekBar mSeekBar;
 
     private QDItemDescription mQDItemDescription;
 
@@ -62,6 +71,7 @@ public class QDSliderFragment extends BaseFragment implements QMUISlider.Callbac
 //        mSlider.setThumbSkin(builder);
 //        builder.clear();
         mSlider.setCallback(this);
+        mSeekBar.setCallback(this);
 
         return view;
     }
@@ -99,6 +109,11 @@ public class QDSliderFragment extends BaseFragment implements QMUISlider.Callbac
 
     @Override
     public void onTouchUp(QMUISlider slider, int progress, int tickCount) {
+
+    }
+
+    @Override
+    public void onLongTouch(QMUISlider slider, int progress, int tickCount) {
 
     }
 }

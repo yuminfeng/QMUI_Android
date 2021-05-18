@@ -31,6 +31,11 @@ import android.widget.ArrayAdapter;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
 
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
+import androidx.fragment.app.Fragment;
+import androidx.fragment.app.FragmentContainerView;
+
 import com.qmuiteam.qmui.arch.QMUIFragment;
 import com.qmuiteam.qmui.arch.QMUIFragmentActivity;
 import com.qmuiteam.qmui.arch.annotation.DefaultFirstFragment;
@@ -45,7 +50,6 @@ import com.qmuiteam.qmui.util.QMUIResHelper;
 import com.qmuiteam.qmui.util.QMUIStatusBarHelper;
 import com.qmuiteam.qmui.util.QMUIViewOffsetHelper;
 import com.qmuiteam.qmui.widget.QMUIRadiusImageView2;
-import com.qmuiteam.qmui.widget.QMUIWindowInsetLayout;
 import com.qmuiteam.qmui.widget.dialog.QMUIDialog;
 import com.qmuiteam.qmui.widget.popup.QMUIPopup;
 import com.qmuiteam.qmui.widget.popup.QMUIPopups;
@@ -53,11 +57,11 @@ import com.qmuiteam.qmuidemo.base.BaseFragment;
 import com.qmuiteam.qmuidemo.base.BaseFragmentActivity;
 import com.qmuiteam.qmuidemo.fragment.QDWebExplorerFragment;
 import com.qmuiteam.qmuidemo.fragment.components.QDPopupFragment;
-import com.qmuiteam.qmuidemo.fragment.components.swipeAction.QDRVSwipeMutiActionFragment;
 import com.qmuiteam.qmuidemo.fragment.components.QDTabSegmentFixModeFragment;
 import com.qmuiteam.qmuidemo.fragment.components.pullLayout.QDPullHorizontalTestFragment;
 import com.qmuiteam.qmuidemo.fragment.components.pullLayout.QDPullRefreshAndLoadMoreTestFragment;
 import com.qmuiteam.qmuidemo.fragment.components.pullLayout.QDPullVerticalTestFragment;
+import com.qmuiteam.qmuidemo.fragment.components.swipeAction.QDRVSwipeMutiActionFragment;
 import com.qmuiteam.qmuidemo.fragment.home.HomeFragment;
 import com.qmuiteam.qmuidemo.fragment.lab.QDArchSurfaceTestFragment;
 import com.qmuiteam.qmuidemo.fragment.lab.QDArchTestFragment;
@@ -68,10 +72,6 @@ import com.qmuiteam.qmuidemo.manager.QDSkinManager;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-
-import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
-import androidx.fragment.app.Fragment;
 
 import static com.qmuiteam.qmuidemo.fragment.QDWebExplorerFragment.EXTRA_TITLE;
 import static com.qmuiteam.qmuidemo.fragment.QDWebExplorerFragment.EXTRA_URL;
@@ -99,7 +99,7 @@ public class QDMainActivity extends BaseFragmentActivity {
 
     private QMUISkinManager.OnSkinChangeListener mOnSkinChangeListener = new QMUISkinManager.OnSkinChangeListener() {
         @Override
-        public void onSkinChange(int oldSkin, int newSkin) {
+        public void onSkinChange(QMUISkinManager skinManager, int oldSkin, int newSkin) {
             if (newSkin == QDSkinManager.SKIN_WHITE) {
                 QMUIStatusBarHelper.setStatusBarLightMode(QDMainActivity.this);
             } else {
@@ -107,6 +107,14 @@ public class QDMainActivity extends BaseFragmentActivity {
             }
         }
     };
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        QMUISkinManager skinManager = QMUISkinManager.defaultInstance(this);
+        setSkinManager(skinManager);
+        mOnSkinChangeListener.onSkinChange(skinManager, -1, skinManager.getCurrentSkin());
+    }
 
     @Override
     protected RootView onCreateRootView(int fragmentContainerId) {
@@ -120,9 +128,9 @@ public class QDMainActivity extends BaseFragmentActivity {
 
     private void renderSkinMakerBtn() {
         Fragment baseFragment = getCurrentFragment();
-        if(baseFragment instanceof BaseFragment){
+        if (baseFragment instanceof BaseFragment) {
             if (QDApplication.openSkinMake) {
-                ((BaseFragment)baseFragment).openSkinMaker();
+                ((BaseFragment) baseFragment).openSkinMaker();
             } else {
                 QMUISkinMaker.getInstance().unBindAll();
             }
@@ -132,7 +140,9 @@ public class QDMainActivity extends BaseFragmentActivity {
     @Override
     protected void onStart() {
         super.onStart();
-        QMUISkinManager.defaultInstance(this).addSkinChangeListener(mOnSkinChangeListener);
+        if (getSkinManager() != null) {
+            getSkinManager().addSkinChangeListener(mOnSkinChangeListener);
+        }
     }
 
     @Override
@@ -144,10 +154,12 @@ public class QDMainActivity extends BaseFragmentActivity {
     @Override
     protected void onStop() {
         super.onStop();
-        QMUISkinManager.defaultInstance(this).removeSkinChangeListener(mOnSkinChangeListener);
+        if (getSkinManager() != null) {
+            getSkinManager().removeSkinChangeListener(mOnSkinChangeListener);
+        }
     }
 
-    private void showGlobalActionPopup(View v){
+    private void showGlobalActionPopup(View v) {
         String[] listItems = new String[]{
                 "Change Skin",
                 QDApplication.openSkinMake ? "Close SkinMaker(Developing)" : "Open SkinMaker(Developing)",
@@ -161,7 +173,7 @@ public class QDMainActivity extends BaseFragmentActivity {
         AdapterView.OnItemClickListener onItemClickListener = new AdapterView.OnItemClickListener() {
             @Override
             public void onItemClick(AdapterView<?> adapterView, View view, int i, long l) {
-                if(i == 0){
+                if (i == 0) {
                     final String[] items = new String[]{"蓝色（默认）", "黑色", "白色"};
                     new QMUIDialog.MenuDialogBuilder(QDMainActivity.this)
                             .addItems(items, new DialogInterface.OnClickListener() {
@@ -171,12 +183,13 @@ public class QDMainActivity extends BaseFragmentActivity {
                                     dialog.dismiss();
                                 }
                             })
+                            .setSkinManager(QMUISkinManager.defaultInstance(QDMainActivity.this))
                             .create()
                             .show();
-                }else if(i == 1){
+                } else if (i == 1) {
                     QDApplication.openSkinMake = !QDApplication.openSkinMake;
                     renderSkinMakerBtn();
-                }else if(i == 2){
+                } else if (i == 2) {
                     QMUISkinMaker.getInstance().export(QDMainActivity.this);
                 }
                 if (mGlobalAction != null) {
@@ -194,12 +207,8 @@ public class QDMainActivity extends BaseFragmentActivity {
                 .shadow(true)
                 .edgeProtection(QMUIDisplayHelper.dp2px(this, 10))
                 .offsetYIfTop(QMUIDisplayHelper.dp2px(this, 5))
+                .skinManager(QMUISkinManager.defaultInstance(this))
                 .show(v);
-    }
-
-    @Override
-    protected int getContextViewId() {
-        return R.id.qmuidemo;
     }
 
 
@@ -223,8 +232,8 @@ public class QDMainActivity extends BaseFragmentActivity {
 
     class CustomRootView extends RootView {
 
-        private QMUIWindowInsetLayout fragmentContainer;
-        private QMUIRadiusImageView2  globalBtn;
+        private FragmentContainerView fragmentContainer;
+        private QMUIRadiusImageView2 globalBtn;
         private QMUIViewOffsetHelper globalBtnOffsetHelper;
         private int btnSize;
         private final int touchSlop;
@@ -236,11 +245,11 @@ public class QDMainActivity extends BaseFragmentActivity {
         private boolean isTouchDownInGlobalBtn = false;
 
         public CustomRootView(Context context, int fragmentContainerId) {
-            super(context);
+            super(context, fragmentContainerId);
 
             btnSize = QMUIDisplayHelper.dp2px(context, 56);
 
-            fragmentContainer = new QMUIWindowInsetLayout(context);
+            fragmentContainer = new FragmentContainerView(context);
             fragmentContainer.setId(fragmentContainerId);
             addView(fragmentContainer, new FrameLayout.LayoutParams(
                     ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
@@ -285,35 +294,35 @@ public class QDMainActivity extends BaseFragmentActivity {
         public boolean onInterceptTouchEvent(MotionEvent event) {
             float x = event.getX(), y = event.getY();
             int action = event.getAction();
-            if(action == MotionEvent.ACTION_DOWN){
+            if (action == MotionEvent.ACTION_DOWN) {
                 isTouchDownInGlobalBtn = isDownInGlobalBtn(x, y);
                 touchDownX = lastTouchX = x;
                 touchDownY = lastTouchY = y;
-            }else if(action == MotionEvent.ACTION_MOVE){
-                if(!isDragging && isTouchDownInGlobalBtn){
+            } else if (action == MotionEvent.ACTION_MOVE) {
+                if (!isDragging && isTouchDownInGlobalBtn) {
                     int dx = (int) (x - touchDownX);
                     int dy = (int) (y - touchDownY);
-                    if(Math.sqrt(dx * dx + dy * dy) > touchSlop){
+                    if (Math.sqrt(dx * dx + dy * dy) > touchSlop) {
                         isDragging = true;
                     }
                 }
 
-                if(isDragging){
+                if (isDragging) {
                     int dx = (int) (x - lastTouchX);
                     int dy = (int) (y - lastTouchY);
                     int gx = globalBtn.getLeft();
                     int gy = globalBtn.getTop();
                     int gw = globalBtn.getWidth(), w = getWidth();
                     int gh = globalBtn.getHeight(), h = getHeight();
-                    if(gx + dx < 0){
+                    if (gx + dx < 0) {
                         dx = -gx;
-                    }else if(gx + dx + gw > w){
+                    } else if (gx + dx + gw > w) {
                         dx = w - gw - gx;
                     }
 
-                    if(gy + dy < 0){
-                        dy = - gy;
-                    }else if(gy + dy + gh > h){
+                    if (gy + dy < 0) {
+                        dy = -gy;
+                    } else if (gy + dy + gh > h) {
                         dy = h - gh - gy;
                     }
                     globalBtnOffsetHelper.setLeftAndRightOffset(
@@ -323,14 +332,14 @@ public class QDMainActivity extends BaseFragmentActivity {
                 }
                 lastTouchX = x;
                 lastTouchY = y;
-            } else if(action == MotionEvent.ACTION_CANCEL || action == MotionEvent.ACTION_UP){
+            } else if (action == MotionEvent.ACTION_CANCEL || action == MotionEvent.ACTION_UP) {
                 isDragging = false;
                 isTouchDownInGlobalBtn = false;
             }
             return isDragging;
         }
 
-        private boolean isDownInGlobalBtn(float x, float y){
+        private boolean isDownInGlobalBtn(float x, float y) {
             return globalBtn.getLeft() < x && globalBtn.getRight() > x &&
                     globalBtn.getTop() < y && globalBtn.getBottom() > y;
         }
@@ -339,35 +348,35 @@ public class QDMainActivity extends BaseFragmentActivity {
         public boolean onTouchEvent(MotionEvent event) {
             float x = event.getX(), y = event.getY();
             int action = event.getAction();
-            if(action == MotionEvent.ACTION_DOWN){
+            if (action == MotionEvent.ACTION_DOWN) {
                 isTouchDownInGlobalBtn = isDownInGlobalBtn(x, y);
                 touchDownX = lastTouchX = x;
                 touchDownY = lastTouchY = y;
-            }else if(action == MotionEvent.ACTION_MOVE){
-                if(!isDragging && isTouchDownInGlobalBtn){
+            } else if (action == MotionEvent.ACTION_MOVE) {
+                if (!isDragging && isTouchDownInGlobalBtn) {
                     int dx = (int) (x - touchDownX);
                     int dy = (int) (y - touchDownY);
-                    if(Math.sqrt(dx * dx + dy * dy) > touchSlop){
+                    if (Math.sqrt(dx * dx + dy * dy) > touchSlop) {
                         isDragging = true;
                     }
                 }
 
-                if(isDragging){
+                if (isDragging) {
                     int dx = (int) (x - lastTouchX);
                     int dy = (int) (y - lastTouchY);
                     int gx = globalBtn.getLeft();
                     int gy = globalBtn.getTop();
                     int gw = globalBtn.getWidth(), w = getWidth();
                     int gh = globalBtn.getHeight(), h = getHeight();
-                    if(gx + dx < 0){
+                    if (gx + dx < 0) {
                         dx = -gx;
-                    }else if(gx + dx + gw > w){
+                    } else if (gx + dx + gw > w) {
                         dx = w - gw - gx;
                     }
 
-                    if(gy + dy < 0){
-                        dy = - gy;
-                    }else if(gy + dy + gh > h){
+                    if (gy + dy < 0) {
+                        dy = -gy;
+                    } else if (gy + dy + gh > h) {
                         dy = h - gh - gy;
                     }
                     globalBtnOffsetHelper.setLeftAndRightOffset(
@@ -377,11 +386,16 @@ public class QDMainActivity extends BaseFragmentActivity {
                 }
                 lastTouchX = x;
                 lastTouchY = y;
-            } else if(action == MotionEvent.ACTION_CANCEL || action == MotionEvent.ACTION_UP){
+            } else if (action == MotionEvent.ACTION_CANCEL || action == MotionEvent.ACTION_UP) {
                 isDragging = false;
                 isTouchDownInGlobalBtn = false;
             }
             return isDragging || super.onTouchEvent(event);
+        }
+
+        @Override
+        public FragmentContainerView getFragmentContainerView() {
+            return fragmentContainer;
         }
     }
 }

@@ -19,7 +19,6 @@ import android.app.Activity;
 import android.app.Dialog;
 import android.content.Context;
 import android.content.res.Resources;
-import android.os.Build;
 import android.os.Trace;
 import android.text.Spanned;
 import android.util.ArrayMap;
@@ -30,6 +29,14 @@ import android.view.Window;
 import android.widget.AdapterView;
 import android.widget.PopupWindow;
 import android.widget.TextView;
+
+import androidx.annotation.MainThread;
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
+import androidx.collection.SimpleArrayMap;
+import androidx.fragment.app.Fragment;
+import androidx.recyclerview.widget.RecyclerView;
+import androidx.viewpager.widget.ViewPager;
 
 import com.qmuiteam.qmui.BuildConfig;
 import com.qmuiteam.qmui.QMUILog;
@@ -59,17 +66,8 @@ import com.qmuiteam.qmui.util.QMUIResHelper;
 import java.lang.ref.WeakReference;
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Objects;
-
-import androidx.annotation.MainThread;
-import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
-import androidx.collection.SimpleArrayMap;
-import androidx.fragment.app.Fragment;
-import androidx.recyclerview.widget.RecyclerView;
-import androidx.viewpager.widget.ViewPager;
 
 public final class QMUISkinManager {
     private static final String TAG = "QMUISkinManager";
@@ -77,6 +75,28 @@ public final class QMUISkinManager {
     private static final String[] EMPTY_ITEMS = new String[]{};
     private static ArrayMap<String, QMUISkinManager> sInstances = new ArrayMap<>();
     private static final String DEFAULT_NAME = "default";
+    public static final DispatchListenStrategySelector DEFAULT_DISPATCH_LISTEN_STRATEGY_SELECTOR = new DispatchListenStrategySelector() {
+        @NonNull
+        @Override
+        public DispatchListenStrategy select(@NonNull ViewGroup viewGroup) {
+            if (viewGroup instanceof RecyclerView ||
+                    viewGroup instanceof ViewPager ||
+                    viewGroup instanceof AdapterView ||
+                    viewGroup.getClass().isAnnotationPresent(QMUISkinListenWithHierarchyChange.class)) {
+                return DispatchListenStrategy.LISTEN_ON_HIERARCHY_CHANGE;
+            }
+            return DispatchListenStrategy.LISTEN_ON_LAYOUT;
+        }
+    };
+    private static DispatchListenStrategySelector sDispatchListenStrategySelector = DEFAULT_DISPATCH_LISTEN_STRATEGY_SELECTOR;
+
+    public static void setDispatchListenStrategySelector(DispatchListenStrategySelector dispatchListenStrategySelector) {
+        if (dispatchListenStrategySelector == null) {
+            sDispatchListenStrategySelector = DEFAULT_DISPATCH_LISTEN_STRATEGY_SELECTOR;
+        } else {
+            sDispatchListenStrategySelector = dispatchListenStrategySelector;
+        }
+    }
 
     @MainThread
     public static QMUISkinManager defaultInstance(Context context) {
@@ -87,15 +107,15 @@ public final class QMUISkinManager {
     @MainThread
     public static QMUISkinManager of(String name, Resources resources, String packageName) {
         QMUISkinManager instance = sInstances.get(name);
-        if(instance == null){
-            instance =  new QMUISkinManager(name, resources, packageName);
+        if (instance == null) {
+            instance = new QMUISkinManager(name, resources, packageName);
             sInstances.put(name, instance);
         }
         return instance;
     }
 
     @MainThread
-    public static QMUISkinManager of(String name, Context context){
+    public static QMUISkinManager of(String name, Context context) {
         context = context.getApplicationContext();
         return of(name, context.getResources(), context.getPackageName());
     }
@@ -109,6 +129,7 @@ public final class QMUISkinManager {
     private SparseArray<SkinItem> mSkins = new SparseArray<>();
     private static HashMap<String, IQMUISkinRuleHandler> sRuleHandlers = new HashMap<>();
     private static HashMap<Integer, Resources.Theme> sStyleIdThemeMap = new HashMap<>();
+    private boolean mIsInSkinChangeDispatch = false;
 
     static {
         sRuleHandlers.put(QMUISkinValueBuilder.BACKGROUND, new QMUISkinRuleBackgroundHandler());
@@ -138,7 +159,7 @@ public final class QMUISkinManager {
         sRuleHandlers.put(QMUISkinValueBuilder.MORE_BG_COLOR, new QMUISkinRuleMoreBgColorHandler());
     }
 
-    public static void setRuleHandler(String name, IQMUISkinRuleHandler handler){
+    public static void setRuleHandler(String name, IQMUISkinRuleHandler handler) {
         sRuleHandlers.put(name, handler);
     }
 
@@ -189,7 +210,6 @@ public final class QMUISkinManager {
     };
 
 
-
     public QMUISkinManager(String name, Resources resources, String packageName) {
         mName = name;
         mResources = resources;
@@ -234,9 +254,9 @@ public final class QMUISkinManager {
         mSkins.append(index, skinItem);
     }
 
-    static ViewSkinCurrent getViewSkinCurrent(View view){
+    static ViewSkinCurrent getViewSkinCurrent(View view) {
         Object current = view.getTag(R.id.qmui_skin_current);
-        if(current instanceof ViewSkinCurrent){
+        if (current instanceof ViewSkinCurrent) {
             return (ViewSkinCurrent) current;
         }
         return null;
@@ -246,7 +266,7 @@ public final class QMUISkinManager {
         if (view == null) {
             return;
         }
-        if (BuildConfig.DEBUG && Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
+        if (BuildConfig.DEBUG) {
             Trace.beginSection("QMUISkin::dispatch");
         }
         SkinItem skinItem = mSkins.get(skinIndex);
@@ -260,7 +280,7 @@ public final class QMUISkinManager {
             theme = skinItem.getTheme();
         }
         runDispatch(view, skinIndex, theme);
-        if (BuildConfig.DEBUG && Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
+        if (BuildConfig.DEBUG) {
             Trace.endSection();
         }
     }
@@ -268,7 +288,7 @@ public final class QMUISkinManager {
 
     private void runDispatch(@NonNull View view, int skinIndex, Resources.Theme theme) {
         ViewSkinCurrent currentTheme = getViewSkinCurrent(view);
-        if(currentTheme != null && currentTheme.index == skinIndex && Objects.equals(currentTheme.managerName, mName)){
+        if (currentTheme != null && currentTheme.index == skinIndex && Objects.equals(currentTheme.managerName, mName)) {
             return;
         }
         view.setTag(R.id.qmui_skin_current, new ViewSkinCurrent(mName, skinIndex));
@@ -278,10 +298,20 @@ public final class QMUISkinManager {
                 return;
             }
         }
-        applyTheme(view, skinIndex, theme);
+
+        Object interceptTag = view.getTag(R.id.qmui_skin_intercept_dispatch);
+        if (interceptTag instanceof Boolean && ((Boolean) interceptTag)) {
+            return;
+        }
+
+        Object ignoreApplyTag = view.getTag(R.id.qmui_skin_ignore_apply);
+        boolean ignoreApply = ignoreApplyTag instanceof Boolean && ((Boolean) ignoreApplyTag);
+        if (!ignoreApply) {
+            applyTheme(view, skinIndex, theme);
+        }
         if (view instanceof ViewGroup) {
             ViewGroup viewGroup = (ViewGroup) view;
-            if (useHierarchyChangeListener(viewGroup)) {
+            if (sDispatchListenStrategySelector.select(viewGroup) == DispatchListenStrategy.LISTEN_ON_HIERARCHY_CHANGE) {
                 viewGroup.setOnHierarchyChangeListener(mOnHierarchyChangeListener);
             } else {
                 viewGroup.addOnLayoutChangeListener(mOnLayoutChangeListener);
@@ -289,7 +319,7 @@ public final class QMUISkinManager {
             for (int i = 0; i < viewGroup.getChildCount(); i++) {
                 runDispatch(viewGroup.getChildAt(i), skinIndex, theme);
             }
-        } else if ((view instanceof TextView) || (view instanceof QMUIQQFaceView)) {
+        } else if (!ignoreApply && ((view instanceof TextView) || (view instanceof QMUIQQFaceView))) {
             CharSequence text;
             if (view instanceof TextView) {
                 text = ((TextView) view).getText();
@@ -308,21 +338,20 @@ public final class QMUISkinManager {
         }
     }
 
-    private boolean useHierarchyChangeListener(ViewGroup viewGroup) {
-        return viewGroup instanceof RecyclerView ||
-                viewGroup instanceof ViewPager ||
-                viewGroup instanceof AdapterView ||
-                viewGroup.getClass().isAnnotationPresent(QMUISkinListenWithHierarchyChange.class);
-    }
-
     private void applyTheme(@NonNull View view, int skinIndex, Resources.Theme theme) {
         SimpleArrayMap<String, Integer> attrs = getSkinAttrs(view);
-        try{
+        try {
             if (view instanceof IQMUISkinHandlerView) {
                 ((IQMUISkinHandlerView) view).handle(this, skinIndex, theme, attrs);
             } else {
                 defaultHandleSkinAttrs(view, theme, attrs);
             }
+
+            Object skinApplyListener = view.getTag(R.id.qmui_skin_apply_listener);
+            if (skinApplyListener instanceof IQMUISkinApplyListener) {
+                ((IQMUISkinApplyListener) skinApplyListener).onApply(view, skinIndex, theme);
+            }
+
             if (view instanceof RecyclerView) {
                 RecyclerView recyclerView = (RecyclerView) view;
                 int itemDecorationCount = recyclerView.getItemDecorationCount();
@@ -333,7 +362,7 @@ public final class QMUISkinManager {
                     }
                 }
             }
-        }catch (Throwable throwable){
+        } catch (Throwable throwable) {
             QMUILog.printErrStackTrace(TAG, throwable,
                     "catch error when apply theme: " + view.getClass().getSimpleName() +
                             "; " + skinIndex + "; attrs = " + (attrs == null ? "null" : attrs.toString()));
@@ -341,8 +370,8 @@ public final class QMUISkinManager {
     }
 
     void refreshRecyclerDecoration(@NonNull RecyclerView recyclerView,
-                                 @NonNull IQMUISkinHandlerDecoration decoration,
-                                 int skinIndex){
+                                   @NonNull IQMUISkinHandlerDecoration decoration,
+                                   int skinIndex) {
         SkinItem skinItem = mSkins.get(skinIndex);
         if (skinItem != null) {
             decoration.handle(recyclerView, this, skinIndex, skinItem.getTheme());
@@ -356,7 +385,7 @@ public final class QMUISkinManager {
         }
     }
 
-    public void defaultHandleSkinAttrs(@NonNull View view, Resources.Theme theme, SimpleArrayMap<String, Integer> attrs) {
+    public void defaultHandleSkinAttrs(@NonNull View view, Resources.Theme theme, @Nullable SimpleArrayMap<String, Integer> attrs) {
         if (attrs != null) {
             for (int i = 0; i < attrs.size(); i++) {
                 String key = attrs.keyAt(i);
@@ -393,18 +422,28 @@ public final class QMUISkinManager {
 
         SimpleArrayMap<String, Integer> attrs = null;
         if (view instanceof IQMUISkinDefaultAttrProvider) {
-            attrs = new SimpleArrayMap<>(((IQMUISkinDefaultAttrProvider) view).getDefaultSkinAttrs());
+            SimpleArrayMap<String, Integer> defaultAttrs = ((IQMUISkinDefaultAttrProvider) view).getDefaultSkinAttrs();
+            if (defaultAttrs != null && !defaultAttrs.isEmpty()) {
+                attrs = new SimpleArrayMap<>(defaultAttrs);
+            }
         }
         IQMUISkinDefaultAttrProvider provider = (IQMUISkinDefaultAttrProvider) view.getTag(
                 R.id.qmui_skin_default_attr_provider);
         if (provider != null) {
-            if (attrs != null) {
-                // override
-                attrs.putAll(provider.getDefaultSkinAttrs());
-            } else {
-                attrs = new SimpleArrayMap<>(provider.getDefaultSkinAttrs());
+            SimpleArrayMap<String, Integer> providedAttrs = provider.getDefaultSkinAttrs();
+            if (providedAttrs != null && !providedAttrs.isEmpty()) {
+                if (attrs != null) {
+                    attrs.putAll(providedAttrs);
+                } else {
+                    attrs = new SimpleArrayMap<>(providedAttrs);
+                }
             }
-        } else if (attrs == null) {
+        }
+
+        if (attrs == null) {
+            if (items.length <= 0) {
+                return null;
+            }
             attrs = new SimpleArrayMap<>(items.length);
         }
 
@@ -458,7 +497,7 @@ public final class QMUISkinManager {
 
     private int mCurrentSkin = DEFAULT_SKIN;
     private final List<WeakReference<?>> mSkinObserverList = new ArrayList<>();
-    private final List<WeakReference<OnSkinChangeListener>> mSkinChangeListeners = new ArrayList<>();
+    private final List<OnSkinChangeListener> mSkinChangeListeners = new ArrayList<>();
 
     public void register(@NonNull Activity activity) {
         if (!containSkinObserver(activity)) {
@@ -554,12 +593,14 @@ public final class QMUISkinManager {
         return false;
     }
 
+    @MainThread
     public void changeSkin(int index) {
         if (mCurrentSkin == index) {
             return;
         }
         int oldIndex = mCurrentSkin;
         mCurrentSkin = index;
+        mIsInSkinChangeDispatch = true;
         for (int i = mSkinObserverList.size() - 1; i >= 0; i--) {
             Object item = mSkinObserverList.get(i).get();
             if (item == null) {
@@ -588,40 +629,25 @@ public final class QMUISkinManager {
         }
 
         for (int i = mSkinChangeListeners.size() - 1; i >= 0; i--) {
-            OnSkinChangeListener item = mSkinChangeListeners.get(i).get();
-            if (item == null) {
-                mSkinChangeListeners.remove(i);
-            } else {
-                item.onSkinChange(oldIndex, mCurrentSkin);
-            }
+            OnSkinChangeListener item = mSkinChangeListeners.get(i);
+            item.onSkinChange(this, oldIndex, mCurrentSkin);
         }
+        mIsInSkinChangeDispatch = false;
     }
 
+    @MainThread
     public void addSkinChangeListener(@NonNull OnSkinChangeListener listener) {
-        Iterator<WeakReference<OnSkinChangeListener>> iterator = mSkinChangeListeners.iterator();
-        while (iterator.hasNext()) {
-            Object item = iterator.next().get();
-            if (item != null) {
-                return;
-            } else {
-                iterator.remove();
-            }
+        if (mIsInSkinChangeDispatch) {
+            throw new RuntimeException("Can not add skinChangeListener while dispatching");
         }
-        mSkinChangeListeners.add(new WeakReference<>(listener));
+        mSkinChangeListeners.add(listener);
     }
 
     public void removeSkinChangeListener(@NonNull OnSkinChangeListener listener) {
-        Iterator<WeakReference<OnSkinChangeListener>> iterator = mSkinChangeListeners.iterator();
-        while (iterator.hasNext()) {
-            Object item = iterator.next().get();
-            if (item != null) {
-                if (item == listener) {
-                    iterator.remove();
-                }
-            } else {
-                iterator.remove();
-            }
+        if (mIsInSkinChangeDispatch) {
+            throw new RuntimeException("Can not add skinChangeListener while dispatching");
         }
+        mSkinChangeListeners.remove(listener);
     }
 
     public int getCurrentSkin() {
@@ -629,13 +655,14 @@ public final class QMUISkinManager {
     }
 
     public interface OnSkinChangeListener {
-        void onSkinChange(int oldSkin, int newSkin);
+        void onSkinChange(QMUISkinManager skinManager, int oldSkin, int newSkin);
     }
 
-    class ViewSkinCurrent{
+    class ViewSkinCurrent {
         String managerName;
         int index;
-        ViewSkinCurrent(String managerName, int index){
+
+        ViewSkinCurrent(String managerName, int index) {
             this.managerName = managerName;
             this.index = index;
         }
@@ -653,5 +680,15 @@ public final class QMUISkinManager {
         public int hashCode() {
             return Objects.hash(managerName, index);
         }
+    }
+
+    public interface DispatchListenStrategySelector {
+        @NonNull
+        DispatchListenStrategy select(@NonNull ViewGroup viewGroup);
+    }
+
+    public enum DispatchListenStrategy {
+        LISTEN_ON_LAYOUT,
+        LISTEN_ON_HIERARCHY_CHANGE
     }
 }

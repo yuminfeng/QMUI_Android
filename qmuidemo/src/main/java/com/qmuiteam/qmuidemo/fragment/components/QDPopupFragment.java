@@ -28,12 +28,19 @@ import android.widget.PopupWindow;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import androidx.constraintlayout.widget.ConstraintLayout;
+import androidx.core.content.ContextCompat;
+import androidx.core.view.WindowInsetsCompat;
+
 import com.qmuiteam.qmui.arch.annotation.LatestVisitRecord;
 import com.qmuiteam.qmui.layout.QMUIFrameLayout;
 import com.qmuiteam.qmui.skin.QMUISkinHelper;
+import com.qmuiteam.qmui.skin.QMUISkinManager;
 import com.qmuiteam.qmui.skin.QMUISkinValueBuilder;
 import com.qmuiteam.qmui.util.QMUIDisplayHelper;
+import com.qmuiteam.qmui.util.QMUIKeyboardHelper;
 import com.qmuiteam.qmui.util.QMUIResHelper;
+import com.qmuiteam.qmui.util.QMUIWindowInsetHelper;
 import com.qmuiteam.qmui.widget.QMUITopBarLayout;
 import com.qmuiteam.qmui.widget.popup.QMUIFullScreenPopup;
 import com.qmuiteam.qmui.widget.popup.QMUIPopup;
@@ -48,8 +55,6 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
-import androidx.constraintlayout.widget.ConstraintLayout;
-import androidx.core.content.ContextCompat;
 import butterknife.BindView;
 import butterknife.ButterKnife;
 import butterknife.OnClick;
@@ -84,6 +89,7 @@ public class QDPopupFragment extends BaseFragment {
         mNormalPopup = QMUIPopups.popup(getContext(), QMUIDisplayHelper.dp2px(getContext(), 250))
                 .preferredDirection(QMUIPopup.DIRECTION_BOTTOM)
                 .view(textView)
+                .skinManager(QMUISkinManager.defaultInstance(getContext()))
                 .edgeProtection(QMUIDisplayHelper.dp2px(getContext(), 20))
                 .offsetX(QMUIDisplayHelper.dp2px(getContext(), 20))
                 .offsetYIfBottom(QMUIDisplayHelper.dp2px(getContext(), 5))
@@ -134,6 +140,7 @@ public class QDPopupFragment extends BaseFragment {
                 .preferredDirection(QMUIPopup.DIRECTION_TOP)
                 .shadow(true)
                 .offsetYIfTop(QMUIDisplayHelper.dp2px(getContext(), 5))
+                .skinManager(QMUISkinManager.defaultInstance(getContext()))
                 .onDismiss(new PopupWindow.OnDismissListener() {
                     @Override
                     public void onDismiss() {
@@ -162,6 +169,7 @@ public class QDPopupFragment extends BaseFragment {
                 .edgeProtection(QMUIDisplayHelper.dp2px(getContext(), 20))
                 .dimAmount(0.6f)
                 .animStyle(QMUIPopup.ANIM_GROW_FROM_CENTER)
+                .skinManager(QMUISkinManager.defaultInstance(getContext()))
                 .onDismiss(new PopupWindow.OnDismissListener() {
                     @Override
                     public void onDismiss() {
@@ -184,6 +192,7 @@ public class QDPopupFragment extends BaseFragment {
                 .view(textView)
                 .edgeProtection(QMUIDisplayHelper.dp2px(getContext(), 20))
                 .dimAmount(0.6f)
+                .skinManager(QMUISkinManager.defaultInstance(getContext()))
                 .animStyle(QMUIPopup.ANIM_GROW_FROM_CENTER)
                 .onDismiss(new PopupWindow.OnDismissListener() {
                     @Override
@@ -236,6 +245,7 @@ public class QDPopupFragment extends BaseFragment {
         QMUIPopups.fullScreenPopup(getContext())
                 .addView(frameLayout)
                 .closeBtn(true)
+                .skinManager(QMUISkinManager.defaultInstance(getContext()))
                 .onBlankClick(new QMUIFullScreenPopup.OnBlankClickListener() {
                     @Override
                     public void onBlankClick(QMUIFullScreenPopup popup) {
@@ -262,6 +272,7 @@ public class QDPopupFragment extends BaseFragment {
         frameLayout.setRadius(QMUIDisplayHelper.dp2px(getContext(), 12));
         int padding = QMUIDisplayHelper.dp2px(getContext(), 20);
         frameLayout.setPadding(padding, padding, padding, padding);
+        QMUIKeyboardHelper.listenKeyBoardWithOffsetSelfHalf(frameLayout, true);
 
         TextView textView = new TextView(getContext());
         textView.setLineSpacing(QMUIDisplayHelper.dp2px(getContext(), 4), 1.0f);
@@ -275,8 +286,11 @@ public class QDPopupFragment extends BaseFragment {
         FrameLayout.LayoutParams lp = new FrameLayout.LayoutParams(size, size);
         frameLayout.addView(textView, lp);
 
-        FrameLayout editFitSystemWindowWrapped = new FrameLayout(getContext());
+        final FrameLayout editFitSystemWindowWrapped = new FrameLayout(getContext());
         editFitSystemWindowWrapped.setFitsSystemWindows(true);
+        QMUIWindowInsetHelper.handleWindowInsets(editFitSystemWindowWrapped,
+                WindowInsetsCompat.Type.navigationBars() | WindowInsetsCompat.Type.displayCutout(), true);
+        QMUIKeyboardHelper.listenKeyBoardWithOffsetSelf(editFitSystemWindowWrapped, true);
 
         int minHeight = QMUIDisplayHelper.dp2px(getContext(), 48);
         QMUIFrameLayout editParent = new QMUIFrameLayout(getContext());
@@ -305,10 +319,8 @@ public class QDPopupFragment extends BaseFragment {
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
         editLp.gravity = Gravity.CENTER_HORIZONTAL;
         editParent.addView(editText, editLp);
-
         editFitSystemWindowWrapped.addView(editParent,  new FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
-
 
         ConstraintLayout.LayoutParams eLp = new ConstraintLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT);
         int mar = QMUIDisplayHelper.dp2px(getContext(), 20);
@@ -320,8 +332,9 @@ public class QDPopupFragment extends BaseFragment {
         eLp.bottomMargin = mar;
 
         QMUIPopups.fullScreenPopup(getContext())
-                .addView(frameLayout, QMUIFullScreenPopup.getOffsetHalfKeyboardHeightListener())
-                .addView(editFitSystemWindowWrapped, eLp, QMUIFullScreenPopup.getOffsetKeyboardHeightListener())
+                .addView(frameLayout)
+                .addView(editFitSystemWindowWrapped, eLp)
+                .skinManager(QMUISkinManager.defaultInstance(getContext()))
                 .onBlankClick(new QMUIFullScreenPopup.OnBlankClickListener() {
                     @Override
                     public void onBlankClick(QMUIFullScreenPopup popup) {
@@ -344,6 +357,7 @@ public class QDPopupFragment extends BaseFragment {
                 QMUIDisplayHelper.dp2px(getContext(), 56),
                 QMUIDisplayHelper.dp2px(getContext(), 56))
                 .shadow(true)
+                .skinManager(QMUISkinManager.defaultInstance(getContext()))
                 .edgeProtection(QMUIDisplayHelper.dp2px(getContext(), 20))
                 .addAction(new QMUIQuickAction.Action().icon(R.drawable.icon_quick_action_copy).text("复制").onClick(
                         new QMUIQuickAction.OnClickListener() {
@@ -381,6 +395,7 @@ public class QDPopupFragment extends BaseFragment {
                 QMUIDisplayHelper.dp2px(getContext(), 56),
                 QMUIDisplayHelper.dp2px(getContext(), 56))
                 .shadow(true)
+                .skinManager(QMUISkinManager.defaultInstance(getContext()))
                 .edgeProtection(QMUIDisplayHelper.dp2px(getContext(), 20))
                 .addAction(new QMUIQuickAction.Action().icon(R.drawable.icon_quick_action_copy).text("复制").onClick(
                         new QMUIQuickAction.OnClickListener() {

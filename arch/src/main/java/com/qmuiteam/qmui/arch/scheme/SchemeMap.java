@@ -14,14 +14,13 @@
  * limitations under the License.
  */
 
-package com.qmuiteam.qmui.util;
+package com.qmuiteam.qmui.arch.scheme;
 
-import java.lang.annotation.ElementType;
-import java.lang.annotation.Retention;
-import java.lang.annotation.RetentionPolicy;
-import java.lang.annotation.Target;
+import java.util.Map;
 
-@Retention(RetentionPolicy.RUNTIME)
-@Target(ElementType.TYPE)
-public @interface DoNotInterceptKeyboardInset {
+public interface SchemeMap {
+
+    SchemeItem findScheme(QMUISchemeHandler handler, String schemeAction, Map<String, String> params);
+
+    boolean exists(QMUISchemeHandler handler, String schemeAction);
 }

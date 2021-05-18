@@ -105,18 +105,27 @@ public class QMUIStickySectionItemDecoration<VH extends QMUIStickySectionAdapter
         mCallback.onHeaderVisibilityChanged(visibility);
     }
 
+    public int getStickyHeaderViewPosition() {
+        return mStickyHeaderViewPosition;
+    }
+
     @Override
     public void onDrawOver(@NonNull Canvas c, @NonNull RecyclerView parent,
                            @NonNull RecyclerView.State state) {
 
 
         ViewGroup sectionContainer = mWeakSectionContainer.get();
-        if (sectionContainer == null || parent.getChildCount() == 0) {
+        if (sectionContainer == null) {
             return;
+        }
+
+        if(parent.getChildCount() == 0){
+            setHeaderVisibility(false);
         }
 
         RecyclerView.Adapter adapter = parent.getAdapter();
         if (adapter == null) {
+            setHeaderVisibility(false);
             return;
         }
 

@@ -17,20 +17,19 @@
 package com.qmuiteam.qmui.arch;
 
 import android.annotation.SuppressLint;
-import android.annotation.TargetApi;
 import android.app.Activity;
 import android.app.ActivityOptions;
-import android.os.Build;
 import android.os.Looper;
+
+import androidx.fragment.app.Fragment;
+import androidx.fragment.app.FragmentManager;
+import androidx.fragment.app.FragmentTransaction;
 
 import com.qmuiteam.qmui.QMUILog;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.util.List;
-
-import androidx.fragment.app.FragmentManager;
-import androidx.fragment.app.FragmentTransaction;
 
 /**
  * Created by Chaojun Wang on 6/9/14.
@@ -73,42 +72,8 @@ public class Utils {
      * with the {@link android.R.attr#windowIsFloating} attribute.
      */
     public static void convertActivityToTranslucent(Activity activity) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-            convertActivityToTranslucentAfterL(activity);
-        } else {
-            convertActivityToTranslucentBeforeL(activity);
-        }
-    }
-
-    /**
-     * Calling the convertToTranslucent method on platforms before Android 5.0
-     */
-    private static void convertActivityToTranslucentBeforeL(Activity activity) {
         try {
-            Class<?>[] classes = Activity.class.getDeclaredClasses();
-            Class<?> translucentConversionListenerClazz = null;
-            for (Class clazz : classes) {
-                if (clazz.getSimpleName().contains("TranslucentConversionListener")) {
-                    translucentConversionListenerClazz = clazz;
-                }
-            }
-            @SuppressLint("PrivateApi") Method method = Activity.class.getDeclaredMethod("convertToTranslucent",
-                    translucentConversionListenerClazz);
-            method.setAccessible(true);
-            method.invoke(activity, new Object[]{
-                    null
-            });
-        } catch (Throwable ignore) {
-        }
-    }
-
-    /**
-     * Calling the convertToTranslucent method on platforms after Android 5.0
-     */
-    @TargetApi(Build.VERSION_CODES.LOLLIPOP)
-    private static void convertActivityToTranslucentAfterL(Activity activity) {
-        try {
-            @SuppressLint("PrivateApi") Method getActivityOptions = Activity.class.getDeclaredMethod("getActivityOptions");
+            @SuppressLint({"PrivateApi", "DiscouragedPrivateApi"}) Method getActivityOptions = Activity.class.getDeclaredMethod("getActivityOptions");
             getActivityOptions.setAccessible(true);
             Object options = getActivityOptions.invoke(activity);
 
@@ -127,6 +92,7 @@ public class Utils {
         }
     }
 
+
     public static void assertInMainThread() {
         if (Looper.myLooper() != Looper.getMainLooper()) {
             StackTraceElement[] elements = Thread.currentThread().getStackTrace();
@@ -136,6 +102,58 @@ public class Utils {
             }
             throw new IllegalStateException("Call the method must be in main thread: " + methodMsg);
         }
+    }
+
+    static void modifyOpForStartFragmentAndDestroyCurrent(FragmentManager fragmentManager,
+                                                                 final QMUIFragment fragment,
+                                                                 final boolean useNewTransitionConfigWhenPop,
+                                                                 final QMUIFragment.TransitionConfig transitionConfig){
+        findAndModifyOpInBackStackRecord(fragmentManager, -1, new Utils.OpHandler() {
+            @Override
+            public boolean handle(Object op) {
+                Field cmdField = null;
+                try {
+                    cmdField = Utils.getOpCmdField(op);
+                    cmdField.setAccessible(true);
+                    int cmd = (int) cmdField.get(op);
+                    if (cmd == 1) {
+                        if (useNewTransitionConfigWhenPop) {
+                            Field popEnterAnimField = Utils.getOpPopEnterAnimField(op);
+                            popEnterAnimField.setAccessible(true);
+                            popEnterAnimField.set(op, transitionConfig.popenter);
+
+                            Field popExitAnimField = Utils.getOpPopExitAnimField(op);
+                            popExitAnimField.setAccessible(true);
+                            popExitAnimField.set(op, transitionConfig.popout);
+                        }
+
+                        Field oldFragmentField = Utils.getOpFragmentField(op);
+                        oldFragmentField.setAccessible(true);
+                        Object fragmentObj = oldFragmentField.get(op);
+                        oldFragmentField.set(op, fragment);
+                        Field backStackNestField = Fragment.class.getDeclaredField("mBackStackNesting");
+                        backStackNestField.setAccessible(true);
+                        int oldFragmentBackStackNest = (int) backStackNestField.get(fragmentObj);
+                        backStackNestField.set(fragment, oldFragmentBackStackNest);
+                        backStackNestField.set(fragmentObj, --oldFragmentBackStackNest);
+                        return true;
+                    }
+                } catch (Throwable e) {
+                    e.printStackTrace();
+                }
+                return false;
+            }
+
+            @Override
+            public boolean needReNameTag() {
+                return true;
+            }
+
+            @Override
+            public String newTagName() {
+                return fragment.getClass().getSimpleName();
+            }
+        });
     }
 
     static void findAndModifyOpInBackStackRecord(FragmentManager fragmentManager, int backStackIndex, OpHandler handler) {
@@ -165,13 +183,15 @@ public class Utils {
 
 
                 Field opsField = Utils.getOpsField(backStackEntry);
-                opsField.setAccessible(true);
-                Object opsObj = opsField.get(backStackEntry);
-                if (opsObj instanceof List<?>) {
-                    List<?> ops = (List<?>) opsObj;
-                    for (Object op : ops) {
-                        if (handler.handle(op)) {
-                            return;
+                if(opsField != null){
+                    opsField.setAccessible(true);
+                    Object opsObj = opsField.get(backStackEntry);
+                    if (opsObj instanceof List<?>) {
+                        List<?> ops = (List<?>) opsObj;
+                        for (Object op : ops) {
+                            if (handler.handle(op)) {
+                                return;
+                            }
                         }
                     }
                 }

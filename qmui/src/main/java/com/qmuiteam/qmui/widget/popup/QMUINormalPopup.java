@@ -22,11 +22,19 @@ import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
 import android.graphics.Path;
+import android.graphics.PorterDuff;
+import android.graphics.PorterDuffXfermode;
 import android.graphics.Rect;
+import android.graphics.RectF;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.FrameLayout;
+
+import androidx.annotation.AnimRes;
+import androidx.annotation.IntDef;
+import androidx.annotation.LayoutRes;
+import androidx.annotation.NonNull;
 
 import com.qmuiteam.qmui.R;
 import com.qmuiteam.qmui.layout.QMUIFrameLayout;
@@ -36,13 +44,10 @@ import com.qmuiteam.qmui.skin.QMUISkinHelper;
 import com.qmuiteam.qmui.skin.QMUISkinValueBuilder;
 import com.qmuiteam.qmui.util.QMUIResHelper;
 
+import org.jetbrains.annotations.NotNull;
+
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
-
-import androidx.annotation.AnimRes;
-import androidx.annotation.IntDef;
-import androidx.annotation.LayoutRes;
-import androidx.annotation.NonNull;
 
 
 public class QMUINormalPopup<T extends QMUIBasePopup> extends QMUIBasePopup<T> {
@@ -74,14 +79,16 @@ public class QMUINormalPopup<T extends QMUIBasePopup> extends QMUIBasePopup<T> {
     private boolean mShowArrow = true;
     private boolean mAddShadow = false;
     private int mRadius = NOT_SET;
-    private int mBorderColor = NOT_SET;
+    private int mBorderColor = Color.TRANSPARENT;
     private int mBorderUsedColor = Color.TRANSPARENT;
     private int mBorderColorAttr = R.attr.qmui_skin_support_popup_border_color;
+    private boolean mIsBorderColorSet = false;
     private int mBorderWidth = NOT_SET;
     private int mShadowElevation = NOT_SET;
     private float mShadowAlpha = 0f;
     private int mShadowInset = NOT_SET;
-    private int mBgColor = NOT_SET;
+    private int mBgColor = Color.TRANSPARENT;
+    private boolean mIsBgColorSet= false;
     private int mBgUsedColor = Color.TRANSPARENT;
     private int mBgColorAttr = R.attr.qmui_skin_support_popup_bg;
     private int mOffsetX = 0;
@@ -159,8 +166,8 @@ public class QMUINormalPopup<T extends QMUIBasePopup> extends QMUIBasePopup<T> {
 
     public T edgeProtection(int left, int top, int right, int bottom) {
         mEdgeProtectionLeft = left;
-        mEdgeProtectionRight = top;
-        mEdgeProtectionTop = right;
+        mEdgeProtectionTop = top;
+        mEdgeProtectionRight = right;
         mEdgeProtectionBottom = bottom;
         return (T) this;
     }
@@ -201,6 +208,7 @@ public class QMUINormalPopup<T extends QMUIBasePopup> extends QMUIBasePopup<T> {
 
     public T borderColor(int borderColor) {
         mBorderColor = borderColor;
+        mIsBorderColorSet = true;
         return (T) this;
     }
 
@@ -222,28 +230,35 @@ public class QMUINormalPopup<T extends QMUIBasePopup> extends QMUIBasePopup<T> {
 
     public T bgColor(int bgColor) {
         mBgColor = bgColor;
+        mIsBgColorSet = true;
         return (T) this;
     }
 
     public T borderColorAttr(int borderColorAttr) {
         mBorderColorAttr = borderColorAttr;
+        if(borderColorAttr != 0){
+            mIsBorderColorSet = false;
+        }
         return (T) this;
     }
 
     public T bgColorAttr(int bgColorAttr) {
         mBgColorAttr = bgColorAttr;
+        if(bgColorAttr != 0){
+            mIsBgColorSet = false;
+        }
         return (T) this;
     }
 
     class ShowInfo {
         private int[] anchorRootLocation = new int[2];
-        private int[] anchorLocation = new int[2];
+        private Rect anchorFrame = new Rect();
         Rect visibleWindowFrame = new Rect();
         int width;
         int height;
         int x;
         int y;
-        View anchor;
+        int anchorHeight;
         int anchorCenter;
         int direction = mPreferredDirection;
         int contentWidthMeasureSpec;
@@ -253,13 +268,22 @@ public class QMUINormalPopup<T extends QMUIBasePopup> extends QMUIBasePopup<T> {
         int decorationTop = 0;
         int decorationBottom = 0;
 
-        ShowInfo(View anchor) {
-            this.anchor = anchor;
+        ShowInfo(View anchor, int anchorAreaLeft, int anchorAreaTop, int anchorAreaRight, int anchorAreaBottom) {
+            this.anchorHeight = anchorAreaBottom - anchorAreaTop;
             // for muti window
             anchor.getRootView().getLocationOnScreen(anchorRootLocation);
+            int[] anchorLocation = new int[2];
             anchor.getLocationOnScreen(anchorLocation);
-            anchorCenter = anchorLocation[0] + anchor.getWidth() / 2;
+            this.anchorCenter = anchorLocation[0] + (anchorAreaLeft + anchorAreaRight) / 2;
             anchor.getWindowVisibleDisplayFrame(visibleWindowFrame);
+            anchorFrame.left = anchorLocation [0] + anchorAreaLeft;
+            anchorFrame.top = anchorLocation[1] + anchorAreaTop;
+            anchorFrame.right = anchorLocation [0] + anchorAreaRight;
+            anchorFrame.bottom = anchorLocation [1] + anchorAreaBottom;
+        }
+
+        ShowInfo(View anchor){
+            this(anchor, 0, 0, anchor.getWidth(), anchor.getHeight());
         }
 
 
@@ -297,10 +321,14 @@ public class QMUINormalPopup<T extends QMUIBasePopup> extends QMUIBasePopup<T> {
     }
 
     public T show(@NonNull View anchor) {
+        return show(anchor, 0, 0, anchor.getWidth(), anchor.getHeight());
+    }
+
+    public T show(@NonNull View anchor, int anchorAreaLeft, int anchorAreaTop, int anchorAreaRight, int anchorAreaBottom){
         if (mContentView == null) {
             throw new RuntimeException("you should call view() to set your content view");
         }
-        ShowInfo showInfo = new ShowInfo(anchor);
+        ShowInfo showInfo = new ShowInfo(anchor, anchorAreaLeft, anchorAreaTop, anchorAreaRight, anchorAreaBottom);
         calculateWindowSize(showInfo);
         calculateXY(showInfo);
         adjustShowInfo(showInfo);
@@ -312,17 +340,16 @@ public class QMUINormalPopup<T extends QMUIBasePopup> extends QMUIBasePopup<T> {
         return (T) this;
     }
 
-
     private void decorateContentView(ShowInfo showInfo) {
         ContentView contentView = ContentView.wrap(mContentView, mInitWidth, mInitHeight);
         QMUISkinValueBuilder builder = QMUISkinValueBuilder.acquire();
-        if (mBorderColor != NOT_SET) {
+        if (mIsBorderColorSet) {
             mBorderUsedColor = mBorderColor;
         } else if (mBorderColorAttr != 0) {
             mBorderUsedColor = QMUIResHelper.getAttrColor(mContext, mBorderColorAttr);
             builder.border(mBorderColorAttr);
         }
-        if (mBgColor != NOT_SET) {
+        if (mIsBgColorSet) {
             mBgUsedColor = mBgColor;
         } else if (mBgColorAttr != 0) {
             mBgUsedColor = QMUIResHelper.getAttrColor(mContext, mBgColorAttr);
@@ -433,14 +460,14 @@ public class QMUINormalPopup<T extends QMUIBasePopup> extends QMUIBasePopup<T> {
             showInfo.y = showInfo.visibleWindowFrame.top + (showInfo.getVisibleHeight() - showInfo.height) / 2;
             showInfo.direction = DIRECTION_CENTER_IN_SCREEN;
         } else if (currentDirection == DIRECTION_TOP) {
-            showInfo.y = showInfo.anchorLocation[1] - showInfo.height - mOffsetYIfTop;
+            showInfo.y = showInfo.anchorFrame.top - showInfo.height - mOffsetYIfTop;
             if (showInfo.y < mEdgeProtectionTop + showInfo.visibleWindowFrame.top) {
                 handleDirection(showInfo, nextDirection, DIRECTION_CENTER_IN_SCREEN);
             } else {
                 showInfo.direction = DIRECTION_TOP;
             }
         } else if (currentDirection == DIRECTION_BOTTOM) {
-            showInfo.y = showInfo.anchorLocation[1] + showInfo.anchor.getHeight() + mOffsetYIfBottom;
+            showInfo.y = showInfo.anchorFrame.top + showInfo.anchorHeight + mOffsetYIfBottom;
             if (showInfo.y > showInfo.visibleWindowFrame.bottom - mEdgeProtectionBottom - showInfo.height) {
                 handleDirection(showInfo, nextDirection, DIRECTION_CENTER_IN_SCREEN);
             } else {
@@ -553,6 +580,8 @@ public class QMUINormalPopup<T extends QMUIBasePopup> extends QMUIBasePopup<T> {
         private View mContentView;
         private Paint mArrowPaint;
         private Path mArrowPath;
+        private RectF mArrowSaveRect = new RectF();
+        private PorterDuffXfermode mArrowAlignMode = new PorterDuffXfermode(PorterDuff.Mode.DST_OUT);
 
         private int mPendingWidth;
         private int mPendingHeight;
@@ -619,11 +648,11 @@ public class QMUINormalPopup<T extends QMUIBasePopup> extends QMUIBasePopup<T> {
         }
 
         @Override
-        public boolean intercept(int skinIndex, Resources.Theme theme) {
-            if (mBorderColor == NOT_SET && mBorderColorAttr != 0) {
+        public boolean intercept(int skinIndex, @NotNull Resources.Theme theme) {
+            if (!mIsBorderColorSet && mBorderColorAttr != 0) {
                 mBorderUsedColor = QMUIResHelper.getAttrColor(theme, mBorderColorAttr);
             }
-            if (mBgColor == NOT_SET && mBgColorAttr != 0) {
+            if (!mIsBgColorSet && mBgColorAttr != 0) {
                 mBgUsedColor = QMUIResHelper.getAttrColor(theme, mBgColorAttr);
             }
             return false;
@@ -635,48 +664,61 @@ public class QMUINormalPopup<T extends QMUIBasePopup> extends QMUIBasePopup<T> {
             if (mShowArrow) {
                 if (mShowInfo.direction == DIRECTION_TOP) {
                     canvas.save();
+                    mArrowSaveRect.set(0f, 0f, mShowInfo.width, mShowInfo.height);
                     mArrowPaint.setStyle(Paint.Style.FILL);
                     mArrowPaint.setColor(mBgUsedColor);
+                    mArrowPaint.setXfermode(null);
                     int l = mShowInfo.anchorCenter - mShowInfo.x - mArrowWidth / 2;
                     l = Math.min(Math.max(l, mShowInfo.decorationLeft),
                             getWidth() - mShowInfo.decorationRight - mArrowWidth);
-                    int t = mShowInfo.decorationTop + mShowInfo.height - mBorderWidth - 1;
+                    int t = mShowInfo.decorationTop + mShowInfo.height - mBorderWidth;
                     canvas.translate(l, t);
                     mArrowPath.reset();
-                    mArrowPath.setLastPoint(0, 0);
-                    mArrowPath.lineTo(mArrowWidth / 2, mArrowHeight);
-                    mArrowPath.lineTo(mArrowWidth, 0);
+                    mArrowPath.setLastPoint(-mArrowWidth / 2f, -mArrowHeight);
+                    mArrowPath.lineTo(mArrowWidth / 2f, mArrowHeight);
+                    mArrowPath.lineTo(mArrowWidth * 3 /2f, -mArrowHeight);
                     mArrowPath.close();
                     canvas.drawPath(mArrowPath, mArrowPaint);
                     if (!mRemoveBorderWhenShadow || !shouldShowShadow()) {
+                        mArrowSaveRect.set(0f, -mBorderWidth, mArrowWidth, mArrowHeight + mBorderWidth);
+                        int saveLayer = canvas.saveLayer(mArrowSaveRect, mArrowPaint, Canvas.ALL_SAVE_FLAG);
                         mArrowPaint.setStrokeWidth(mBorderWidth);
                         mArrowPaint.setColor(mBorderUsedColor);
                         mArrowPaint.setStyle(Paint.Style.STROKE);
-                        canvas.drawLine(0, 0, mArrowWidth / 2, mArrowHeight, mArrowPaint);
-                        canvas.drawLine(mArrowWidth / 2, mArrowHeight, mArrowWidth, 0, mArrowPaint);
+                        canvas.drawPath(mArrowPath, mArrowPaint);
+                        mArrowPaint.setXfermode(mArrowAlignMode);
+                        mArrowPaint.setStyle(Paint.Style.FILL);
+                        canvas.drawRect(0f, -mBorderWidth, mArrowWidth, 0, mArrowPaint);
+                        canvas.restoreToCount(saveLayer);
                     }
                     canvas.restore();
                 } else if (mShowInfo.direction == DIRECTION_BOTTOM) {
                     canvas.save();
                     mArrowPaint.setStyle(Paint.Style.FILL);
+                    mArrowPaint.setXfermode(null);
                     mArrowPaint.setColor(mBgUsedColor);
                     int l = mShowInfo.anchorCenter - mShowInfo.x - mArrowWidth / 2;
                     l = Math.min(Math.max(l, mShowInfo.decorationLeft),
                             getWidth() - mShowInfo.decorationRight - mArrowWidth);
-                    int t = mShowInfo.decorationTop + mBorderWidth + 1;
+                    int t = mShowInfo.decorationTop + mBorderWidth;
                     canvas.translate(l, t);
                     mArrowPath.reset();
-                    mArrowPath.setLastPoint(0, 0);
-                    mArrowPath.lineTo(mArrowWidth / 2, -mArrowHeight);
-                    mArrowPath.lineTo(mArrowWidth, 0);
+                    mArrowPath.setLastPoint(-mArrowWidth / 2f, mArrowHeight);
+                    mArrowPath.lineTo(mArrowWidth / 2f, -mArrowHeight);
+                    mArrowPath.lineTo(mArrowWidth * 3 / 2f, mArrowHeight);
                     mArrowPath.close();
                     canvas.drawPath(mArrowPath, mArrowPaint);
                     if (!mRemoveBorderWhenShadow || !shouldShowShadow()) {
+                        mArrowSaveRect.set(0, -mArrowHeight - mBorderWidth, mArrowWidth, mBorderWidth);
+                        int saveLayer = canvas.saveLayer(mArrowSaveRect, mArrowPaint, Canvas.ALL_SAVE_FLAG);
                         mArrowPaint.setStrokeWidth(mBorderWidth);
                         mArrowPaint.setStyle(Paint.Style.STROKE);
                         mArrowPaint.setColor(mBorderUsedColor);
-                        canvas.drawLine(0, 0, mArrowWidth / 2, -mArrowHeight, mArrowPaint);
-                        canvas.drawLine(mArrowWidth / 2, -mArrowHeight, mArrowWidth, 0, mArrowPaint);
+                        canvas.drawPath(mArrowPath, mArrowPaint);
+                        mArrowPaint.setXfermode(mArrowAlignMode);
+                        mArrowPaint.setStyle(Paint.Style.FILL);
+                        canvas.drawRect(0, 0, mArrowWidth, mBorderWidth, mArrowPaint);
+                        canvas.restoreToCount(saveLayer);
                     }
                     canvas.restore();
                 }

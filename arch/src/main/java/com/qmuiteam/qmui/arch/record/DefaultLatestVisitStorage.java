@@ -1,14 +1,30 @@
+/*
+ * Tencent is pleased to support the open source community by making QMUI_Android available.
+ *
+ * Copyright (C) 2017-2018 THL A29 Limited, a Tencent company. All rights reserved.
+ *
+ * Licensed under the MIT License (the "License"); you may not use this file except in
+ * compliance with the License. You may obtain a copy of the License at
+ *
+ * http://opensource.org/licenses/MIT
+ *
+ * Unless required by applicable law or agreed to in writing, software distributed under the License is
+ * distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND,
+ * either express or implied. See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package com.qmuiteam.qmui.arch.record;
 
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
-import android.os.Bundle;
-
-import java.util.Map;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+
+import java.util.HashMap;
+import java.util.Map;
 
 public class DefaultLatestVisitStorage implements QMUILatestVisitStorage {
 
@@ -33,8 +49,10 @@ public class DefaultLatestVisitStorage implements QMUILatestVisitStorage {
         return sp.getInt(SP_FRAGMENT_RECORD_ID, NOT_EXIST);
     }
 
+    @Nullable
     @Override
-    public void getAndWriteFragmentArgumentsToBundle(@NonNull Bundle bundle) {
+    public Map<String, RecordArgumentEditor.Argument> getFragmentArguments() {
+        HashMap<String, RecordArgumentEditor.Argument> ret = new HashMap<>();
         for (Map.Entry<String, ?> entity : sp.getAll().entrySet()) {
             String key = entity.getKey();
             Object value = entity.getValue();
@@ -43,20 +61,20 @@ public class DefaultLatestVisitStorage implements QMUILatestVisitStorage {
                 char tag = key.charAt(prefix.length());
                 String realKey = key.substring(prefix.length() + 1);
                 if (tag == SP_INT_ARG_TAG) {
-                    bundle.putInt(realKey, (Integer) value);
+                    ret.put(realKey, new RecordArgumentEditor.Argument(value, Integer.TYPE));
                 } else if (tag == SP_BOOLEAN_ARG_TAG) {
-                    bundle.putBoolean(realKey, (Boolean) value);
+                    ret.put(realKey, new RecordArgumentEditor.Argument(value, Boolean.TYPE));
                 } else if (tag == SP_LONG_ARG_TAG) {
-                    bundle.putLong(realKey, (Long) value);
+                    ret.put(realKey, new RecordArgumentEditor.Argument(value, Long.TYPE));
                 } else if (tag == SP_FLOAT_ARG_TAG) {
-                    bundle.putFloat(realKey, (Float) value);
+                    ret.put(realKey, new RecordArgumentEditor.Argument(value, Float.TYPE));
                 } else if (tag == SP_STRING_ARG_TAG) {
-                    bundle.putString(realKey, (String) value);
+                    ret.put(realKey, new RecordArgumentEditor.Argument(value, String.class));
                 }
             }
         }
+        return ret;
     }
-
 
     @Override
     public int getActivityRecordId() {

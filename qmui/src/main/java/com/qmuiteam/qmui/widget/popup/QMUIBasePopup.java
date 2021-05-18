@@ -27,15 +27,14 @@ import android.view.View;
 import android.view.WindowManager;
 import android.widget.PopupWindow;
 
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
+import androidx.core.view.ViewCompat;
+
 import com.qmuiteam.qmui.skin.QMUISkinManager;
 import com.qmuiteam.qmui.util.QMUIResHelper;
 
 import java.lang.ref.WeakReference;
-
-import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
-import androidx.core.app.NavUtils;
-import androidx.core.view.ViewCompat;
 
 public abstract class QMUIBasePopup<T extends QMUIBasePopup> {
     public static final float DIM_AMOUNT_NOT_EXIST = -1f;
@@ -48,13 +47,12 @@ public abstract class QMUIBasePopup<T extends QMUIBasePopup> {
     private float mDimAmount = DIM_AMOUNT_NOT_EXIST;
     private int mDimAmountAttr = 0;
     private PopupWindow.OnDismissListener mDismissListener;
-    private boolean mDismissIfOutsideTouch = true;
     private QMUISkinManager mSkinManager;
     private QMUISkinManager.OnSkinChangeListener mOnSkinChangeListener = new QMUISkinManager.OnSkinChangeListener() {
         @Override
-        public void onSkinChange(int oldSkin, int newSkin) {
+        public void onSkinChange(QMUISkinManager skinManager, int oldSkin, int newSkin) {
             if (mDimAmountAttr != 0) {
-                Resources.Theme theme = QMUISkinManager.defaultInstance(mContext).getTheme(newSkin);
+                Resources.Theme theme = skinManager.getTheme(newSkin);
                 mDimAmount = QMUIResHelper.getAttrFloatValue(theme, mDimAmountAttr);
                 updateDimAmount(mDimAmount);
                 QMUIBasePopup.this.onSkinChange(oldSkin, newSkin);
@@ -85,28 +83,30 @@ public abstract class QMUIBasePopup<T extends QMUIBasePopup> {
     };
 
 
+
     public QMUIBasePopup(Context context) {
         mContext = context;
-        mSkinManager = QMUISkinManager.defaultInstance(context);
         mWindowManager = (WindowManager) context.getSystemService(Context.WINDOW_SERVICE);
         mWindow = new PopupWindow(context);
-        initWindow();
-    }
-
-    private void initWindow() {
         mWindow.setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
         mWindow.setFocusable(true);
         mWindow.setTouchable(true);
         mWindow.setOnDismissListener(new PopupWindow.OnDismissListener() {
             @Override
             public void onDismiss() {
+                removeOldAttachStateChangeListener();
+                mAttachedViewRf = null;
+                if(mSkinManager != null){
+                    mSkinManager.unRegister(mWindow);
+                    mSkinManager.removeSkinChangeListener(mOnSkinChangeListener);
+                }
                 QMUIBasePopup.this.onDismiss();
                 if (mDismissListener != null) {
                     mDismissListener.onDismiss();
                 }
             }
         });
-        dismissIfOutsideTouch(mDismissIfOutsideTouch);
+        dismissIfOutsideTouch(true);
     }
 
     protected void onSkinChange(int oldSkin, int newSkin){
@@ -132,8 +132,17 @@ public abstract class QMUIBasePopup<T extends QMUIBasePopup> {
         return (T) this;
     }
 
+    public T setTouchable(boolean touchable){
+        mWindow.setTouchable(true);
+        return (T) this;
+    }
+
+    public T  setFocusable(boolean focusable){
+        mWindow.setFocusable(focusable);
+        return (T) this;
+    }
+
     public T dismissIfOutsideTouch(boolean dismissIfOutsideTouch) {
-        mDismissIfOutsideTouch = dismissIfOutsideTouch;
         mWindow.setOutsideTouchable(dismissIfOutsideTouch);
         if (dismissIfOutsideTouch) {
             mWindow.setTouchInterceptor(mOutsideTouchDismissListener);
@@ -222,12 +231,6 @@ public abstract class QMUIBasePopup<T extends QMUIBasePopup> {
     }
 
     public final void dismiss() {
-        removeOldAttachStateChangeListener();
-        mAttachedViewRf = null;
-        if(mSkinManager != null){
-            mSkinManager.unRegister(mWindow);
-            mSkinManager.removeSkinChangeListener(mOnSkinChangeListener);
-        }
         mWindow.dismiss();
     }
 }

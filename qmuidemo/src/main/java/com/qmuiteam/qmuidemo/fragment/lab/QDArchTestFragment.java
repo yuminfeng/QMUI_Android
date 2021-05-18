@@ -22,11 +22,15 @@ import android.os.Bundle;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
-import android.widget.Button;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
+
 import com.qmuiteam.qmui.arch.QMUIFragment;
+import com.qmuiteam.qmui.arch.QMUINavFragment;
+import com.qmuiteam.qmui.arch.SwipeBackLayout;
 import com.qmuiteam.qmui.arch.annotation.LatestVisitRecord;
 import com.qmuiteam.qmui.arch.record.RecordArgumentEditor;
 import com.qmuiteam.qmui.util.QMUIViewHelper;
@@ -42,8 +46,6 @@ import com.qmuiteam.qmuidemo.activity.TestArchInViewPagerActivity;
 import com.qmuiteam.qmuidemo.base.BaseFragment;
 import com.qmuiteam.qmuidemo.lib.annotation.Widget;
 
-import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
 import butterknife.BindView;
 import butterknife.ButterKnife;
 
@@ -56,10 +58,18 @@ public class QDArchTestFragment extends BaseFragment {
     private static final int REQUEST_CODE = 1;
     private static final String DATA_TEST = "data_test";
 
-    @BindView(R.id.topbar) QMUITopBarLayout mTopBar;
-    @BindView(R.id.title) TextView mTitleTv;
-    @BindView(R.id.btn) QMUIRoundButton mBtn;
-    @BindView(R.id.btn_1) QMUIRoundButton mBtn1;
+    @BindView(R.id.topbar)
+    QMUITopBarLayout mTopBar;
+    @BindView(R.id.title)
+    TextView mTitleTv;
+    @BindView(R.id.btn)
+    QMUIRoundButton mBtn;
+    @BindView(R.id.btn_1)
+    QMUIRoundButton mBtn1;
+    @BindView(R.id.btn_2)
+    QMUIRoundButton mBtn2;
+    @BindView(R.id.btn_3)
+    QMUIRoundButton mBtn3;
 
     private Holder mHolder = new Holder();
 
@@ -103,13 +113,29 @@ public class QDArchTestFragment extends BaseFragment {
                 startActivity(intent);
             }
         });
+
+        mBtn2.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                QMUINavFragment fragment = QDArchNavFragment.getInstance(QDArchTestFragment.class, null);
+                startFragment(fragment);
+            }
+        });
+
+        mBtn3.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                if(getParentFragment() instanceof QMUIFragment){
+                    ((QMUIFragment)getParentFragment()).startFragment(newInstance(next));
+                }
+            }
+        });
         return view;
     }
 
     @Override
     public void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-
         Intent intent = new Intent();
         intent.putExtra(DATA_TEST, "test");
         setFragmentResult(RESULT_OK, intent);
@@ -147,6 +173,22 @@ public class QDArchTestFragment extends BaseFragment {
         if (data != null) {
             Log.i(TAG, data.getStringExtra(DATA_TEST));
         }
+    }
+
+    @Override
+    protected int getDragDirection(@NonNull SwipeBackLayout swipeBackLayout,
+                                   @NonNull SwipeBackLayout.ViewMoveAction viewMoveAction,
+                                   float downX, float downY, float dx, float dy, float slopTouch) {
+        if(dx >= slopTouch){
+            return SwipeBackLayout.DRAG_DIRECTION_LEFT_TO_RIGHT;
+        }else if(-dx>= slopTouch){
+            return SwipeBackLayout.DRAG_DIRECTION_RIGHT_TO_LEFT;
+        } else if(dy >= slopTouch){
+            return SwipeBackLayout.DRAG_DIRECTION_TOP_TO_BOTTOM;
+        }else if(-dy >= slopTouch){
+            return SwipeBackLayout.DRAG_DIRECTION_BOTTOM_TO_TOP;
+        }
+        return SwipeBackLayout.DRAG_DIRECTION_NONE;
     }
 
     public static void injectEntrance(final QMUITopBarLayout topbar) {

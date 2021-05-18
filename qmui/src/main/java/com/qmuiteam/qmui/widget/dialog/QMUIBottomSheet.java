@@ -20,7 +20,6 @@ import android.app.Dialog;
 import android.content.Context;
 import android.graphics.Typeface;
 import android.graphics.drawable.Drawable;
-import android.os.Build;
 import android.os.Bundle;
 import android.util.Pair;
 import android.view.LayoutInflater;
@@ -31,14 +30,6 @@ import android.view.Window;
 import android.view.WindowManager;
 import android.widget.LinearLayout;
 
-import com.google.android.material.bottomsheet.BottomSheetBehavior;
-import com.qmuiteam.qmui.R;
-
-import java.lang.annotation.Retention;
-import java.lang.annotation.RetentionPolicy;
-import java.util.ArrayList;
-import java.util.List;
-
 import androidx.annotation.IntDef;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -46,6 +37,15 @@ import androidx.coordinatorlayout.widget.CoordinatorLayout;
 import androidx.core.view.ViewCompat;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
+
+import com.google.android.material.bottomsheet.BottomSheetBehavior;
+import com.qmuiteam.qmui.R;
+import com.qmuiteam.qmui.layout.QMUIPriorityLinearLayout;
+
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+import java.util.ArrayList;
+import java.util.List;
 
 import static com.qmuiteam.qmui.layout.IQMUILayout.HIDE_RADIUS_SIDE_BOTTOM;
 
@@ -74,7 +74,7 @@ public class QMUIBottomSheet extends QMUIBaseDialog {
 
     public QMUIBottomSheet(Context context, int style) {
         super(context, style);
-        ViewGroup container = (ViewGroup) View.inflate(context, R.layout.qmui_bottom_sheet_dialog, null);
+        ViewGroup container = (ViewGroup) getLayoutInflater().inflate(R.layout.qmui_bottom_sheet_dialog, null);
         mRootView = container.findViewById(R.id.bottom_sheet);
         mBehavior = new QMUIBottomSheetBehavior<>();
         mBehavior.setHideable(cancelable);
@@ -144,10 +144,8 @@ public class QMUIBottomSheet extends QMUIBaseDialog {
         super.onCreate(savedInstanceState);
         Window window = getWindow();
         if (window != null) {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-                window.clearFlags(WindowManager.LayoutParams.FLAG_TRANSLUCENT_STATUS);
-                window.addFlags(WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS);
-            }
+            window.clearFlags(WindowManager.LayoutParams.FLAG_TRANSLUCENT_STATUS);
+            window.addFlags(WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS);
             window.setLayout(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT);
         }
         ViewCompat.requestApplyInsets(mRootView);
@@ -236,22 +234,24 @@ public class QMUIBottomSheet extends QMUIBaseDialog {
     @Override
     public void setContentView(View view, ViewGroup.LayoutParams params) {
         throw new IllegalStateException(
-                "Use addContentView(View, LinearLayout.LayoutParams) for replacement");
+                "Use addContentView(View, QMUIPriorityLinearLayout.LayoutParams) for replacement");
     }
 
     @Override
     public void addContentView(View view, ViewGroup.LayoutParams params) {
         throw new IllegalStateException(
-                "Use addContentView(View, LinearLayout.LayoutParams) for replacement");
+                "Use addContentView(View, QMUIPriorityLinearLayout.LayoutParams) for replacement");
     }
 
-    public void addContentView(View view, LinearLayout.LayoutParams layoutParams) {
+    public void addContentView(View view, QMUIPriorityLinearLayout.LayoutParams layoutParams) {
         mRootView.addView(view, layoutParams);
     }
 
     public void addContentView(View view) {
-        mRootView.addView(view, new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+        QMUIPriorityLinearLayout.LayoutParams lp =  new QMUIPriorityLinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        lp.setPriority(QMUIPriorityLinearLayout.LayoutParams.PRIORITY_DISPOSABLE);
+        mRootView.addView(view, lp);
     }
 
     public void addContentView(int layoutResId) {
@@ -433,7 +433,7 @@ public class QMUIBottomSheet extends QMUIBaseDialog {
                 }
             }
             LinearLayout footerView = null;
-            if (mContentFooterViews != null && mContentHeaderViews.size() > 0) {
+            if (mContentFooterViews != null && mContentFooterViews.size() > 0) {
                 footerView = new LinearLayout(context);
                 footerView.setOrientation(LinearLayout.VERTICAL);
                 for (View view : mContentFooterViews) {
@@ -492,6 +492,7 @@ public class QMUIBottomSheet extends QMUIBaseDialog {
         private ArrayList<QMUIBottomSheetGridItemModel> mSecondLineItems;
         private ItemViewFactory mItemViewFactory = DEFAULT_ITEM_VIEW_FACTORY;
         private OnSheetItemClickListener mOnSheetItemClickListener;
+        private QMUIBottomSheetGridLineLayout.ItemWidthCalculator mItemWidthCalculator = null;
 
         public BottomGridSheetBuilder(Context context) {
             super(context);
@@ -542,6 +543,11 @@ public class QMUIBottomSheet extends QMUIBaseDialog {
             return this;
         }
 
+        public BottomGridSheetBuilder setItemWidthCalculator(QMUIBottomSheetGridLineLayout.ItemWidthCalculator itemWidthCalculator) {
+            mItemWidthCalculator = itemWidthCalculator;
+            return this;
+        }
+
         @Override
         public void onClick(View v) {
             if (mOnSheetItemClickListener != null) {
@@ -581,7 +587,7 @@ public class QMUIBottomSheet extends QMUIBaseDialog {
                             new LinearLayout.LayoutParams(wrapContent, wrapContent)));
                 }
             }
-            return new QMUIBottomSheetGridLineLayout(mDialog, firstLines, secondLines);
+            return new QMUIBottomSheetGridLineLayout(mDialog, mItemWidthCalculator, firstLines, secondLines);
         }
 
         public interface OnSheetItemClickListener {

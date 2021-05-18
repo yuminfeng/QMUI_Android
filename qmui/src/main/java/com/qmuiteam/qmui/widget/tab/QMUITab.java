@@ -20,14 +20,13 @@ import android.graphics.Typeface;
 import android.view.Gravity;
 import android.view.View;
 
-import java.lang.annotation.Retention;
-import java.lang.annotation.RetentionPolicy;
-
-import androidx.annotation.ColorInt;
 import androidx.annotation.IntDef;
 import androidx.annotation.NonNull;
 
 import com.qmuiteam.qmui.skin.QMUISkinHelper;
+
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
 
 public class QMUITab {
     public static final int ICON_POSITION_LEFT = 0;
@@ -35,10 +34,12 @@ public class QMUITab {
     public static final int ICON_POSITION_RIGHT = 2;
     public static final int ICON_POSITION_BOTTOM = 3;
 
+    public static final int SIGN_COUNT_VERTICAL_ALIGN_BOTTOM_TO_CONTENT_TOP = 0;
+    public static final int SIGN_COUNT_VERTICAL_ALIGN_TOP_TO_CONTENT_TOP = 1;
+    public static final int SIGN_COUNT_VERTICAL_ALIGN_MIDDLE_TO_CONTENT = 2;
+
     public static final int NO_SIGN_COUNT_AND_RED_POINT = 0;
     public static final int RED_POINT_SIGN_COUNT = -1;
-
-    public static final int SIGN_COUNT_VIEW_LAYOUT_VERTICAL_CENTER = Integer.MIN_VALUE;
 
     @IntDef(value = {
             ICON_POSITION_LEFT,
@@ -56,6 +57,7 @@ public class QMUITab {
     int selectedTextSize;
     Typeface normalTypeface;
     Typeface selectedTypeface;
+    float typefaceUpdateAreaPercent;
     int normalColor;
     int selectColor;
     int normalColorAttr;
@@ -65,6 +67,8 @@ public class QMUITab {
     float selectedTabIconScale = 1f;
     QMUITabIcon tabIcon = null;
     boolean skinChangeWithTintColor;
+    boolean skinChangeNormalWithTintColor;
+    boolean skinChangeSelectedWithTintColor;
     int normalIconAttr;
     int selectedIconAttr;
     int contentWidth = 0;
@@ -73,8 +77,9 @@ public class QMUITab {
     int gravity = Gravity.CENTER;
     private CharSequence text;
     int signCountDigits = 2;
-    int signCountLeftMarginWithIconOrText = 0;
-    int signCountBottomMarginWithIconOrText = 0;
+    int signCountHorizontalOffset = 0;
+    int signCountVerticalOffset = 0;
+    int signCountVerticalAlign = SIGN_COUNT_VERTICAL_ALIGN_BOTTOM_TO_CONTENT_TOP;
     int signCount = NO_SIGN_COUNT_AND_RED_POINT;
 
     float rightSpaceWeight = 0f;
@@ -109,6 +114,13 @@ public class QMUITab {
         rightSpaceWeight = rightWeight;
     }
 
+    public void setTypefaceUpdateAreaPercent(float typefaceUpdateAreaPercent) {
+        this.typefaceUpdateAreaPercent = typefaceUpdateAreaPercent;
+    }
+
+    public float getTypefaceUpdateAreaPercent() {
+        return typefaceUpdateAreaPercent;
+    }
 
     public int getGravity() {
         return gravity;

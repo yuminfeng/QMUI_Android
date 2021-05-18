@@ -26,13 +26,13 @@ import android.graphics.PorterDuffColorFilter;
 import android.util.AttributeSet;
 import android.view.MotionEvent;
 
+import androidx.annotation.ColorInt;
+import androidx.appcompat.widget.AppCompatImageView;
+
 import com.qmuiteam.qmui.R;
 import com.qmuiteam.qmui.alpha.QMUIAlphaViewHelper;
 import com.qmuiteam.qmui.layout.IQMUILayout;
 import com.qmuiteam.qmui.layout.QMUILayoutHelper;
-
-import androidx.annotation.ColorInt;
-import androidx.appcompat.widget.AppCompatImageView;
 
 /**
  * shown image in radius view, is different to {@link QMUIRadiusImageView}
@@ -73,7 +73,6 @@ public class QMUIRadiusImageView2 extends AppCompatImageView implements IQMUILay
     }
 
     private void init(Context context, AttributeSet attrs, int defStyleAttr) {
-        setScaleType(ScaleType.CENTER_CROP);
         mLayoutHelper = new QMUILayoutHelper(context, attrs, defStyleAttr, this);
         setChangeAlphaWhenPress(false);
         setChangeAlphaWhenDisable(false);
@@ -101,6 +100,9 @@ public class QMUIRadiusImageView2 extends AppCompatImageView implements IQMUILay
                     R.styleable.QMUIRadiusImageView2_qmui_corner_radius, 0));
         }
         array.recycle();
+
+        mLayoutHelper.setBorderWidth(mBorderWidth);
+        mLayoutHelper.setBorderColor(mBorderColor);
     }
 
 
@@ -492,7 +494,7 @@ public class QMUIRadiusImageView2 extends AppCompatImageView implements IQMUILay
 
     @Override
     public void setSelected(boolean selected) {
-        if(!mIsInOnTouchEvent){
+        if (!mIsInOnTouchEvent) {
             super.setSelected(selected);
         }
         if (mIsSelected != selected) {
@@ -541,11 +543,10 @@ public class QMUIRadiusImageView2 extends AppCompatImageView implements IQMUILay
 
     @Override
     public boolean onTouchEvent(MotionEvent event) {
-        mIsInOnTouchEvent = true;
         if (!this.isClickable()) {
-            this.setSelected(false);
             return super.onTouchEvent(event);
-        }else if(mIsTouchSelectModeEnabled){
+        } else if (mIsTouchSelectModeEnabled) {
+            mIsInOnTouchEvent = true;
             switch (event.getAction()) {
                 case MotionEvent.ACTION_DOWN:
                     this.setSelected(true);
@@ -557,8 +558,9 @@ public class QMUIRadiusImageView2 extends AppCompatImageView implements IQMUILay
                     this.setSelected(false);
                     break;
             }
+            mIsInOnTouchEvent = false;
         }
-        mIsInOnTouchEvent = false;
+
         return super.onTouchEvent(event);
     }
 

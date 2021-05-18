@@ -22,7 +22,9 @@ import android.content.res.Resources;
 import android.content.res.TypedArray;
 import android.graphics.Color;
 import android.graphics.Rect;
+import android.graphics.Typeface;
 import android.graphics.drawable.Drawable;
+import android.text.TextUtils;
 import android.text.TextUtils.TruncateAt;
 import android.util.AttributeSet;
 import android.util.TypedValue;
@@ -33,6 +35,10 @@ import android.view.ViewParent;
 import android.widget.Button;
 import android.widget.LinearLayout;
 import android.widget.RelativeLayout;
+
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
+import androidx.collection.SimpleArrayMap;
 
 import com.qmuiteam.qmui.R;
 import com.qmuiteam.qmui.alpha.QMUIAlphaImageButton;
@@ -48,10 +54,10 @@ import com.qmuiteam.qmui.util.QMUILangHelper;
 import com.qmuiteam.qmui.util.QMUIResHelper;
 import com.qmuiteam.qmui.util.QMUIViewHelper;
 
+import org.jetbrains.annotations.NotNull;
+
 import java.util.ArrayList;
 import java.util.List;
-
-import androidx.collection.SimpleArrayMap;
 
 /**
  * A standard toolbar for use within application content.
@@ -76,7 +82,11 @@ public class QMUITopBar extends QMUIRelativeLayout implements IQMUISkinHandlerVi
     private List<View> mRightViewList;
     private int mTitleGravity;
     private int mLeftBackDrawableRes;
+    private int mLeftBackViewWidth;
+    private boolean mClearLeftPaddingWhenAddLeftBackView;
     private int mTitleTextSize;
+    private Typeface mTitleTypeface;
+    private Typeface mSubTitleTypeface;
     private int mTitleTextSizeWithSubTitle;
     private int mSubTitleTextSize;
     private int mTitleTextColor;
@@ -88,9 +98,11 @@ public class QMUITopBar extends QMUIRelativeLayout implements IQMUISkinHandlerVi
     private int mTopBarTextBtnPaddingHor;
     private ColorStateList mTopBarTextBtnTextColor;
     private int mTopBarTextBtnTextSize;
+    private Typeface mTopBarTextBtnTypeface;
     private int mTopBarHeight = -1;
     private Rect mTitleContainerRect;
     private boolean mIsBackgroundSetterDisabled = false;
+    private TruncateAt mEllipsize;
 
     private static SimpleArrayMap<String, Integer> sDefaultSkinAttrs;
 
@@ -128,9 +140,11 @@ public class QMUITopBar extends QMUIRelativeLayout implements IQMUISkinHandlerVi
     void init(Context context, AttributeSet attrs, int defStyleAttr) {
         TypedArray array = getContext().obtainStyledAttributes(attrs, R.styleable.QMUITopBar, defStyleAttr, 0);
         mLeftBackDrawableRes = array.getResourceId(R.styleable.QMUITopBar_qmui_topbar_left_back_drawable_id, R.drawable.qmui_icon_topbar_back);
+        mLeftBackViewWidth = array.getDimensionPixelSize(R.styleable.QMUITopBar_qmui_topbar_left_back_width, -1);
+        mClearLeftPaddingWhenAddLeftBackView = array.getBoolean(R.styleable.QMUITopBar_qmui_topbar_clear_left_padding_when_add_left_back_view, false);
         mTitleGravity = array.getInt(R.styleable.QMUITopBar_qmui_topbar_title_gravity, Gravity.CENTER);
         mTitleTextSize = array.getDimensionPixelSize(R.styleable.QMUITopBar_qmui_topbar_title_text_size, QMUIDisplayHelper.sp2px(context, 17));
-        mTitleTextSizeWithSubTitle = array.getDimensionPixelSize(R.styleable.QMUITopBar_qmui_topbar_title_text_size, QMUIDisplayHelper.sp2px(context, 16));
+        mTitleTextSizeWithSubTitle = array.getDimensionPixelSize(R.styleable.QMUITopBar_qmui_topbar_title_text_size_with_subtitle, QMUIDisplayHelper.sp2px(context, 16));
         mSubTitleTextSize = array.getDimensionPixelSize(R.styleable.QMUITopBar_qmui_topbar_subtitle_text_size, QMUIDisplayHelper.sp2px(context, 11));
         mTitleTextColor = array.getColor(R.styleable.QMUITopBar_qmui_topbar_title_color, QMUIResHelper.getAttrColor(context, R.attr.qmui_config_color_gray_1));
         mSubTitleTextColor = array.getColor(R.styleable.QMUITopBar_qmui_topbar_subtitle_color, QMUIResHelper.getAttrColor(context, R.attr.qmui_config_color_gray_4));
@@ -141,6 +155,25 @@ public class QMUITopBar extends QMUIRelativeLayout implements IQMUISkinHandlerVi
         mTopBarTextBtnPaddingHor = array.getDimensionPixelSize(R.styleable.QMUITopBar_qmui_topbar_text_btn_padding_horizontal, QMUIDisplayHelper.dp2px(context, 12));
         mTopBarTextBtnTextColor = array.getColorStateList(R.styleable.QMUITopBar_qmui_topbar_text_btn_color_state_list);
         mTopBarTextBtnTextSize = array.getDimensionPixelSize(R.styleable.QMUITopBar_qmui_topbar_text_btn_text_size, QMUIDisplayHelper.sp2px(context, 16));
+
+        mTitleTypeface = array.getBoolean(R.styleable.QMUITopBar_qmui_topbar_title_bold, false) ? Typeface.DEFAULT_BOLD : null;
+        mSubTitleTypeface = array.getBoolean(R.styleable.QMUITopBar_qmui_topbar_subtitle_bold, false) ? Typeface.DEFAULT_BOLD : null;
+        mTopBarTextBtnTypeface = array.getBoolean(R.styleable.QMUITopBar_qmui_topbar_text_btn_bold, false) ? Typeface.DEFAULT_BOLD : null;
+        int ellipsize = array.getInt(R.styleable.QMUITopBar_android_ellipsize, -1) ;
+        switch (ellipsize) {
+            case 1:
+                mEllipsize = TextUtils.TruncateAt.START;
+                break;
+            case 2:
+                mEllipsize = TextUtils.TruncateAt.MIDDLE;
+                break;
+            case 3:
+                mEllipsize = TextUtils.TruncateAt.END;
+                break;
+            default:
+                mEllipsize = null;
+                break;
+        }
         array.recycle();
     }
 
@@ -194,7 +227,7 @@ public class QMUITopBar extends QMUIRelativeLayout implements IQMUISkinHandlerVi
      * @param title TopBar 的标题
      */
     public QMUIQQFaceView setTitle(String title) {
-        QMUIQQFaceView titleView = getTitleView();
+        QMUIQQFaceView titleView = ensureTitleView();
         titleView.setText(title);
         if (QMUILangHelper.isNullOrEmpty(title)) {
             titleView.setVisibility(GONE);
@@ -211,18 +244,24 @@ public class QMUITopBar extends QMUIRelativeLayout implements IQMUISkinHandlerVi
         return mTitleView.getText();
     }
 
+    @Nullable
+    public QMUIQQFaceView getTitleView(){
+        return mTitleView;
+    }
+
     public void showTitleView(boolean toShow) {
         if (mTitleView != null) {
             mTitleView.setVisibility(toShow ? VISIBLE : GONE);
         }
     }
 
-    private QMUIQQFaceView getTitleView() {
+    private QMUIQQFaceView ensureTitleView() {
         if (mTitleView == null) {
             mTitleView = new QMUIQQFaceView(getContext());
             mTitleView.setGravity(Gravity.CENTER);
             mTitleView.setSingleLine(true);
-            mTitleView.setEllipsize(TruncateAt.MIDDLE);
+            mTitleView.setEllipsize(mEllipsize);
+            mTitleView.setTypeface(mTitleTypeface);
             mTitleView.setTextColor(mTitleTextColor);
             QMUISkinSimpleDefaultAttrProvider provider = new QMUISkinSimpleDefaultAttrProvider();
             provider.setDefaultSkinAttr(QMUISkinValueBuilder.TEXT_COLOR, R.attr.qmui_skin_support_topbar_title_color);
@@ -253,8 +292,8 @@ public class QMUITopBar extends QMUIRelativeLayout implements IQMUISkinHandlerVi
      *
      * @param subTitle TopBar 的副标题
      */
-    public QMUIQQFaceView setSubTitle(String subTitle) {
-        QMUIQQFaceView subTitleView = getSubTitleView();
+    public QMUIQQFaceView setSubTitle(CharSequence subTitle) {
+        QMUIQQFaceView subTitleView = ensureSubTitleView();
         subTitleView.setText(subTitle);
         if (QMUILangHelper.isNullOrEmpty(subTitle)) {
             subTitleView.setVisibility(GONE);
@@ -271,26 +310,32 @@ public class QMUITopBar extends QMUIRelativeLayout implements IQMUISkinHandlerVi
      *
      * @param resId TopBar 的副标题 resId
      */
-    public void setSubTitle(int resId) {
-        setSubTitle(getResources().getString(resId));
+    public QMUIQQFaceView setSubTitle(int resId) {
+        return setSubTitle(getResources().getString(resId));
     }
 
-    private QMUIQQFaceView getSubTitleView() {
+    private QMUIQQFaceView ensureSubTitleView() {
         if (mSubTitleView == null) {
             mSubTitleView = new QMUIQQFaceView(getContext());
             mSubTitleView.setGravity(Gravity.CENTER);
             mSubTitleView.setSingleLine(true);
-            mSubTitleView.setEllipsize(TruncateAt.MIDDLE);
+            mSubTitleView.setTypeface(mSubTitleTypeface);
+            mSubTitleView.setEllipsize(mEllipsize);
             mSubTitleView.setTextSize(mSubTitleTextSize);
             mSubTitleView.setTextColor(mSubTitleTextColor);
             QMUISkinSimpleDefaultAttrProvider provider = new QMUISkinSimpleDefaultAttrProvider();
             provider.setDefaultSkinAttr(QMUISkinValueBuilder.TEXT_COLOR, R.attr.qmui_skin_support_topbar_subtitle_color);
-            mTitleView.setTag(R.id.qmui_skin_default_attr_provider, provider);
+            mSubTitleView.setTag(R.id.qmui_skin_default_attr_provider, provider);
             LinearLayout.LayoutParams titleLp = generateTitleViewAndSubTitleViewLp();
             titleLp.topMargin = QMUIDisplayHelper.dp2px(getContext(), 1);
             makeSureTitleContainerView().addView(mSubTitleView, titleLp);
         }
 
+        return mSubTitleView;
+    }
+
+    @Nullable
+    public QMUIQQFaceView getSubTitleView(){
         return mSubTitleView;
     }
 
@@ -323,6 +368,10 @@ public class QMUITopBar extends QMUIRelativeLayout implements IQMUISkinHandlerVi
             QMUIViewHelper.getDescendantRect(this, mTitleContainerView, mTitleContainerRect);
         }
         return mTitleContainerRect;
+    }
+
+    public LinearLayout getTitleContainerView() {
+        return mTitleContainerView;
     }
 
     void disableBackgroundSetter(){
@@ -445,18 +494,27 @@ public class QMUITopBar extends QMUIRelativeLayout implements IQMUISkinHandlerVi
         addView(view, layoutParams);
     }
 
+    public LayoutParams generateTopBarImageButtonLayoutParams(){
+        return generateTopBarImageButtonLayoutParams(-1, -1);
+    }
+
     /**
      * 生成一个 LayoutParams，当把 Button addView 到 TopBar 时，使用这个 LayouyParams
      */
-    public LayoutParams generateTopBarImageButtonLayoutParams() {
-        LayoutParams lp = new LayoutParams(mTopBarImageBtnWidth, mTopBarImageBtnHeight);
-        lp.topMargin = Math.max(0, (getTopBarHeight() - mTopBarImageBtnHeight) / 2);
+    public LayoutParams generateTopBarImageButtonLayoutParams(int iconWidth, int iconHeight) {
+        iconHeight = iconHeight > 0 ? iconHeight : mTopBarImageBtnHeight;
+        LayoutParams lp = new LayoutParams(iconWidth > 0 ? iconWidth : mTopBarImageBtnWidth, iconHeight);
+        lp.topMargin = Math.max(0, (getTopBarHeight() - iconHeight) / 2);
         return lp;
     }
 
 
     public QMUIAlphaImageButton addRightImageButton(int drawableResId, int viewId) {
         return addRightImageButton(drawableResId, true, viewId);
+    }
+
+    public QMUIAlphaImageButton addRightImageButton(int drawableResId, boolean followTintColor, int viewId) {
+        return addRightImageButton(drawableResId, followTintColor, viewId, -1, -1);
     }
 
     /**
@@ -467,14 +525,18 @@ public class QMUITopBar extends QMUIRelativeLayout implements IQMUISkinHandlerVi
      * @param followTintColor 换肤时使用 tintColor 更改它的颜色
      * @return 返回生成的按钮
      */
-    public QMUIAlphaImageButton addRightImageButton(int drawableResId, boolean followTintColor, int viewId) {
+    public QMUIAlphaImageButton addRightImageButton(int drawableResId, boolean followTintColor, int viewId, int iconWidth, int iconHeight) {
         QMUIAlphaImageButton rightButton = generateTopBarImageButton(drawableResId, followTintColor);
-        this.addRightView(rightButton, viewId, generateTopBarImageButtonLayoutParams());
+        this.addRightView(rightButton, viewId, generateTopBarImageButtonLayoutParams(iconWidth, iconHeight));
         return rightButton;
     }
 
     public QMUIAlphaImageButton addLeftImageButton(int drawableResId, int viewId) {
         return addLeftImageButton(drawableResId, true, viewId);
+    }
+
+    public QMUIAlphaImageButton addLeftImageButton(int drawableResId, boolean followTintColor, int viewId) {
+        return addLeftImageButton(drawableResId, followTintColor, viewId, -1, -1);
     }
 
     /**
@@ -485,9 +547,9 @@ public class QMUITopBar extends QMUIRelativeLayout implements IQMUISkinHandlerVi
      * @param followTintColor 换肤时使用 tintColor 更改它的颜色
      * @return 返回生成的按钮
      */
-    public QMUIAlphaImageButton addLeftImageButton(int drawableResId, boolean followTintColor, int viewId) {
+    public QMUIAlphaImageButton addLeftImageButton(int drawableResId, boolean followTintColor, int viewId, int iconWidth, int iconHeight) {
         QMUIAlphaImageButton leftButton = generateTopBarImageButton(drawableResId, followTintColor);
-        this.addLeftView(leftButton, viewId, generateTopBarImageButtonLayoutParams());
+        this.addLeftView(leftButton, viewId, generateTopBarImageButtonLayoutParams(iconWidth, iconHeight));
         return leftButton;
     }
 
@@ -572,6 +634,7 @@ public class QMUITopBar extends QMUIRelativeLayout implements IQMUISkinHandlerVi
         button.setMinHeight(0);
         button.setMinimumWidth(0);
         button.setMinimumHeight(0);
+        button.setTypeface(mTopBarTextBtnTypeface);
         button.setPadding(mTopBarTextBtnPaddingHor, 0, mTopBarTextBtnPaddingHor, 0);
         button.setTextColor(mTopBarTextBtnTextColor);
         button.setTextSize(TypedValue.COMPLEX_UNIT_PX, mTopBarTextBtnTextSize);
@@ -610,6 +673,12 @@ public class QMUITopBar extends QMUIRelativeLayout implements IQMUISkinHandlerVi
      * @return 返回按钮
      */
     public QMUIAlphaImageButton addLeftBackImageButton() {
+        if(mClearLeftPaddingWhenAddLeftBackView){
+            QMUIViewHelper.setPaddingLeft(this, 0);
+        }
+        if(mLeftBackViewWidth > 0){
+            return addLeftImageButton(mLeftBackDrawableRes, true, R.id.qmui_topbar_item_left_back, mLeftBackViewWidth, -1);
+        }
         return addLeftImageButton(mLeftBackDrawableRes, R.id.qmui_topbar_item_left_back);
     }
 
@@ -667,7 +736,7 @@ public class QMUITopBar extends QMUIRelativeLayout implements IQMUISkinHandlerVi
      * @param alpha 取值范围：[0, 255]，255表示不透明
      */
     public void setBackgroundAlpha(int alpha) {
-        this.getBackground().setAlpha(alpha);
+        this.getBackground().mutate().setAlpha(alpha);
     }
 
     /**
@@ -756,7 +825,7 @@ public class QMUITopBar extends QMUIRelativeLayout implements IQMUISkinHandlerVi
     }
 
     @Override
-    public void handle(QMUISkinManager manager, int skinIndex, Resources.Theme theme, SimpleArrayMap<String, Integer> attrs) {
+    public void handle(@NotNull QMUISkinManager manager, int skinIndex, @NotNull Resources.Theme theme, @Nullable SimpleArrayMap<String, Integer> attrs) {
         if (attrs != null) {
             for (int i = 0; i < attrs.size(); i++) {
                 String key = attrs.keyAt(i);
@@ -779,5 +848,18 @@ public class QMUITopBar extends QMUIRelativeLayout implements IQMUISkinHandlerVi
     @Override
     public SimpleArrayMap<String, Integer> getDefaultSkinAttrs() {
         return sDefaultSkinAttrs;
+    }
+
+    public void eachLeftRightView(@NonNull Action action){
+        for(int i = 0; i < mLeftViewList.size(); i++){
+            action.call(mLeftViewList.get(i), i, true);
+        }
+        for(int i = 0; i < mRightViewList.size(); i++){
+            action.call(mRightViewList.get(i), i, false);
+        }
+    }
+
+    public interface Action {
+        void call(View view, int index, boolean isLeftView);
     }
 }

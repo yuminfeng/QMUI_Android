@@ -19,19 +19,22 @@ import android.app.Activity;
 import android.content.Context;
 import android.content.res.Resources;
 import android.content.res.TypedArray;
+import android.os.Build;
 import android.util.AttributeSet;
+import android.view.InflateException;
 import android.view.LayoutInflater;
 import android.view.View;
+
+import androidx.annotation.Nullable;
+import androidx.appcompat.app.AppCompatActivity;
 
 import com.qmuiteam.qmui.QMUILog;
 import com.qmuiteam.qmui.R;
 import com.qmuiteam.qmui.util.QMUILangHelper;
 
 import java.lang.ref.WeakReference;
+import java.lang.reflect.Field;
 import java.util.HashMap;
-
-import androidx.annotation.Nullable;
-import androidx.appcompat.app.AppCompatActivity;
 
 public class QMUISkinLayoutInflaterFactory implements LayoutInflater.Factory2 {
     private static final String TAG = "QMUISkin";
@@ -43,6 +46,12 @@ public class QMUISkinLayoutInflaterFactory implements LayoutInflater.Factory2 {
     };
     private static final HashMap<String, String> sSuccessClassNamePrefixMap = new HashMap<>();
 
+    /**
+     * LayoutInflater.createView(four args) is provided in Android P, but some ROM did't follow the official.
+     */
+    private static boolean sCanUseCreateViewFourArguments = true;
+    private static boolean sDidCheckLayoutInflaterCreateViewExitFourArgMethod = false;
+
     private Resources.Theme mEmptyTheme;
     private WeakReference<Activity> mActivityWeakReference;
     private LayoutInflater mOriginLayoutInflater;
@@ -50,6 +59,13 @@ public class QMUISkinLayoutInflaterFactory implements LayoutInflater.Factory2 {
     public QMUISkinLayoutInflaterFactory(Activity activity, LayoutInflater originLayoutInflater) {
         mActivityWeakReference = new WeakReference<>(activity);
         mOriginLayoutInflater = originLayoutInflater;
+    }
+
+    public QMUISkinLayoutInflaterFactory cloneForLayoutInflaterIfNeeded(LayoutInflater layoutInflater){
+        if(mOriginLayoutInflater.getContext() == layoutInflater.getContext()){
+            return this;
+        }
+        return new QMUISkinLayoutInflaterFactory(mActivityWeakReference.get(), layoutInflater);
     }
 
     @Override
@@ -64,19 +80,39 @@ public class QMUISkinLayoutInflaterFactory implements LayoutInflater.Factory2 {
             try{
                 if (!name.contains(".")) {
                     if(sSuccessClassNamePrefixMap.containsKey(name)){
-                        view = LayoutInflater.from(context)
+                        view = mOriginLayoutInflater
                                 .createView(name, sSuccessClassNamePrefixMap.get(name), attrs);
                     }else{
                         for (String prefix : sClassPrefixList) {
-                            view = mOriginLayoutInflater.createView(name, prefix, attrs);
-                            if (view != null) {
-                                sSuccessClassNamePrefixMap.put(name, prefix);
-                                break;
+                            try {
+                                view = mOriginLayoutInflater.createView(name, prefix, attrs);
+                                if (view != null) {
+                                    sSuccessClassNamePrefixMap.put(name, prefix);
+                                    break;
+                                }
+                            } catch (Exception ignored) {
                             }
                         }
                     }
                 }else{
-                    view = mOriginLayoutInflater.createView(name, null, attrs);
+                    if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.P){
+                        if(!sDidCheckLayoutInflaterCreateViewExitFourArgMethod){
+                            try{
+                                LayoutInflater.class.getDeclaredMethod(
+                                        "createView", Context.class, String.class, String.class, AttributeSet.class);
+                            }catch (Exception e){
+                                sCanUseCreateViewFourArguments = false;
+                            }
+                            sDidCheckLayoutInflaterCreateViewExitFourArgMethod = true;
+                        }
+                        if(sCanUseCreateViewFourArguments){
+                            view = mOriginLayoutInflater.createView(context, name, null, attrs);
+                        }else{
+                            view = originCreateViewForLowSDK(name, context, attrs);
+                        }
+                    }else{
+                       view = originCreateViewForLowSDK(name, context, attrs);
+                    }
                 }
             }catch (ClassNotFoundException ignore){
 
@@ -94,6 +130,19 @@ public class QMUISkinLayoutInflaterFactory implements LayoutInflater.Factory2 {
             QMUISkinValueBuilder.release(builder);
         }
 
+        return view;
+    }
+
+    private View originCreateViewForLowSDK(String name, Context context, AttributeSet attrs)
+            throws NoSuchFieldException, IllegalArgumentException,
+            IllegalAccessException, InflateException, ClassNotFoundException {
+        Field field = LayoutInflater.class.getDeclaredField("mConstructorArgs");
+        field.setAccessible(true);
+        Object[] mConstructorArgs = (Object[]) field.get(mOriginLayoutInflater);
+        Object lastContext = mConstructorArgs[0];
+        mConstructorArgs[0] = context;
+        View view = mOriginLayoutInflater.createView(name, null, attrs);
+        mConstructorArgs[0] = lastContext;
         return view;
     }
 
